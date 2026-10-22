@@ -6,6 +6,7 @@ if (!isset($page) || !isset($pages[$page]) || !isset($content)) {
 }
 [$title, $sub] = $pages[$page];
 $search = $search ?? '';
+$invoiceCsrfToken = auth_csrf_token();
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -151,6 +152,50 @@ dialog::backdrop{background:rgba(10,18,15,.5)}
 dialog[open]{animation:pop .18s ease-out}
 @keyframes pop{from{opacity:0;transform:translateY(8px)}}
 .m{padding:26px 28px}
+.invoice-dialog{width:min(1180px,96vw);max-height:94vh;overflow:auto;margin:auto}
+.invoice-editor-layout{display:grid;grid-template-columns:minmax(300px,.82fr) minmax(0,1.18fr);gap:22px;align-items:start}
+.invoice-editor-fields{min-width:0}
+.invoice-preview-stage{min-width:0;padding:16px;background:#eceeef;border-radius:14px}
+.invoice-preview-label{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.invoice-paper{max-width:720px;margin:0 auto;background:#fff;color:#17191b;box-shadow:0 8px 24px rgba(20,25,30,.12);font-size:12px;line-height:1.45;overflow:hidden}
+.invoice-cover{display:grid;grid-template-columns:1fr .85fr;gap:28px;padding:30px 34px;color:#fff;background:linear-gradient(112deg,#8435a8 0%,#c52b78 56%,#f2393d 100%)}
+.invoice-cover-brand{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700}
+.invoice-cover-mark{display:grid;place-items:center;width:31px;height:31px;border:1px solid rgba(255,255,255,.7);border-radius:9px;font-size:17px}
+.invoice-paper .invoice-cover h2{font-size:30px;letter-spacing:.02em;margin:25px 0 0}
+.invoice-cover-id{font-weight:700;font-size:13px}
+.invoice-cover-byline{margin-top:24px;color:rgba(255,255,255,.88)}
+.invoice-cover-info{display:grid;align-content:start;gap:12px}
+.invoice-cover-info b,.invoice-cover-info small{display:block}
+.invoice-cover-info small{font-size:10px;color:rgba(255,255,255,.8);margin-top:2px;overflow-wrap:anywhere}
+.invoice-cover-total{font-size:13px;font-weight:700;margin-top:2px}
+.invoice-paper-body{padding:0 28px 28px}
+.invoice-paper-table-wrap{position:relative;margin-top:-2px;background:#fff;border-radius:18px 18px 0 0;padding:14px 0 0}
+.invoice-paper table{table-layout:fixed;width:100%;border-collapse:separate;border-spacing:0;font-size:11px}
+.invoice-paper th{padding:10px 8px;background:#e9eaeb;color:#202225;border:0;font-size:10px;font-weight:700}
+.invoice-paper th:first-child{border-radius:9px 0 0 9px;width:8%}
+.invoice-paper th:nth-child(2){width:42%}
+.invoice-paper th:nth-child(3){width:17%}
+.invoice-paper th:nth-child(4){width:10%}
+.invoice-paper th:last-child{border-radius:0 9px 9px 0;width:23%;text-align:right}
+.invoice-paper td{padding:12px 8px;border:0;vertical-align:top;overflow-wrap:anywhere}
+.invoice-paper td:first-child{font-weight:700}
+.invoice-paper td:last-child{text-align:right;font-weight:600}
+.invoice-paper tbody tr:nth-child(even){background:#f0f0f1}
+.invoice-paper tbody tr:nth-child(even) td:first-child{border-radius:9px 0 0 9px}
+.invoice-paper tbody tr:nth-child(even) td:last-child{border-radius:0 9px 9px 0}
+.invoice-paper-item-description{font-weight:700}
+.invoice-paper-item-description small{display:block;font-weight:400;color:#65696d}
+.invoice-paper-bottom{display:grid;grid-template-columns:1fr minmax(180px,.8fr);gap:24px;padding-top:22px}
+.invoice-paper-thanks{font-size:16px;font-weight:700;margin-bottom:8px}
+.invoice-paper-contact{color:#52565a;font-size:10px;margin-bottom:15px}
+.invoice-paper-terms{font-size:10px;color:#52565a;margin-top:5px;white-space:pre-line}
+.invoice-paper-totals{display:grid;align-content:start;gap:8px}
+.invoice-paper-totals>div{display:flex;justify-content:space-between;gap:10px}
+.invoice-paper-total{padding:9px 12px;border-radius:9px;color:#fff;background:linear-gradient(112deg,#8435a8,#c52b78 56%,#f2393d 100%);font-size:14px;font-weight:700}
+.invoice-paper-signature{text-align:center;margin-top:14px;font-size:14px;font-weight:700}
+.invoice-paper-signature small{display:block;font-size:9px;font-weight:400;color:#65696d}
+.invoice-preview-dialog{width:min(900px,94vw);max-height:92vh;overflow:auto;margin:auto}
+.invoice-preview-dialog .sheet{padding:24px}
 .m h2{font-size:20px;margin-bottom:4px}
 .m>p{color:var(--muted);margin-bottom:20px}
 .f{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
@@ -170,6 +215,7 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
 .sheet table th,.sheet table td{padding:10px 0}
 .sheet table th:last-child,.sheet table td:last-child{text-align:right}
 .sheet .note{margin-top:20px;color:var(--muted);font-size:13px}
+.invoice-preview-dialog .invoice-paper{font-size:13px}
 .toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-weight:600;opacity:0;transition:.2s;pointer-events:none;z-index:99;max-width:90vw}
 .toast.show{opacity:1;transform:translateX(-50%)}
 .bnav{display:none}
@@ -228,6 +274,16 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
   .hero-l h2{font-size:18px}
   .av.big{width:48px;height:48px;font-size:16px}
   .hero-r{width:100%}.hero-r .btn{flex:1}
+  .invoice-dialog,.invoice-preview-dialog{width:96vw;max-width:720px;max-height:94vh;border-radius:16px;margin:auto}
+  .invoice-dialog>.m{padding:20px 16px}
+  .invoice-editor-layout{grid-template-columns:1fr}
+  .invoice-preview-stage{padding:8px}
+  .invoice-cover{padding:20px 16px;gap:14px}
+  .invoice-paper .invoice-cover h2{font-size:22px;margin-top:18px}
+  .invoice-paper-body{padding:0 14px 18px}
+  .invoice-paper-bottom{grid-template-columns:1fr;gap:14px}
+  .invoice-paper-table-wrap{overflow-x:auto}
+  .invoice-paper table{min-width:430px}
 }
 @media (max-width:400px){.mtop .mname{display:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -275,18 +331,30 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
   <?php endforeach; ?>
 </nav>
 
-<dialog id="dlg"><div class="m">
+<dialog id="dlg" class="invoice-dialog"><div class="m">
   <h2>Create invoice</h2><p>Fill in the details. The total updates as you type.</p>
-  <div class="f"><label>Client<input id="cl" list="cls" placeholder="Choose or type a client"></label><datalist id="cls"></datalist>
-  <label>Tax (%)<input id="tax" type="number" min="0"></label>
-  <label>Issue date<input id="iss" type="date"></label><label>Due date<input id="due" type="date"></label></div>
-  <div id="items"></div>
-  <button class="btn add sm" id="addItem" type="button">Add line item</button>
-  <div class="tot"><div><span>Subtotal</span><span id="sb">0</span></div><div><span>Tax</span><span id="tx">0</span></div><div class="g"><span>Total</span><span id="gr">0</span></div></div>
-  <div class="foot"><button class="btn" id="cancel" type="button">Cancel</button><button class="btn pri" id="save" type="button">Generate invoice</button></div>
+  <div class="invoice-editor-layout">
+    <div class="invoice-editor-fields">
+      <div class="f"><label>Client<input id="cl" list="cls" placeholder="Choose or type a client"></label><datalist id="cls"></datalist>
+      <label>Tax (%)<input id="tax" type="number" min="0"></label>
+      <label>Issue date<input id="iss" type="date"></label><label>Due date<input id="due" type="date"></label></div>
+      <div id="items"></div>
+      <button class="btn add sm" id="addItem" type="button">Add line item</button>
+      <div class="tot"><div><span>Subtotal</span><span id="sb">0</span></div><div><span>Tax</span><span id="tx">0</span></div><div class="g"><span>Total</span><span id="gr">0</span></div></div>
+      <div class="foot"><button class="btn" id="cancel" type="button">Cancel</button><button class="btn pri" id="save" type="button">Generate invoice</button></div>
+    </div>
+    <div class="invoice-preview-stage"><p class="invoice-preview-label">Live invoice preview</p><div id="draft-preview"></div></div>
+  </div>
 </div></dialog>
 
-<dialog id="vw"><div class="m sheet" id="sheet"></div></dialog>
+<dialog id="vw" class="invoice-preview-dialog"><div class="m sheet" id="sheet"></div></dialog>
+
+<dialog id="emaildlg"><form class="m" id="email-form">
+  <h2>Email invoice as PDF</h2>
+  <p>The invoice will be attached as a PDF.</p>
+  <label>Recipient email<input id="invoice-recipient" type="email" autocomplete="email" required></label>
+  <div class="foot"><button class="btn" id="email-cancel" type="button">Cancel</button><button class="btn pri" id="email-send" type="submit">Send invoice</button></div>
+</form></dialog>
 
 <dialog id="cdlg"><div class="m"><h2>Add client</h2><p>Saved clients appear when you create invoices.</p>
   <div class="f"><label>Name<input id="c-n"></label><label>Email<input id="c-e" type="email"></label></div>
@@ -307,6 +375,11 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
 const PAGE   = <?= json_encode($page, $jsonFlags) ?>;
 const SEARCH = <?= json_encode($search, $jsonFlags) ?>;
 const __INITIAL__ = <?= $defaultJson ?>;
+const AUTH_USER = <?= json_encode(['id' => $authUser['id'], 'n' => $authUser['name'], 'e' => $authUser['email'], 'role' => 'User'], $jsonFlags) ?>;
+const AUTH_NOTICE = <?= json_encode($_SESSION['dashboard_notice'] ?? '', $jsonFlags) ?>;
+const INVOICE_CSRF = <?= json_encode($invoiceCsrfToken, $jsonFlags) ?>;
+<?php unset($_SESSION['dashboard_notice']); ?>
+const USER_DATA_KEY = 'ledgerly-user-' + AUTH_USER.id;
 const DEF = () => JSON.parse(JSON.stringify(__INITIAL__));
 
 const $=s=>document.querySelector(s);
@@ -320,12 +393,13 @@ const greet=()=>{const h=new Date().getHours();return h<12?'Good morning':h<18?'
 
 let S;
 try{
-  const saved=JSON.parse(localStorage.getItem('ledgerly-user')||'null');
+  const saved=JSON.parse(localStorage.getItem(USER_DATA_KEY)||'null');
   S = saved && saved.inv ? Object.assign(DEF(), saved) : DEF();
   if(!S.me) S.me = DEF().me;
   if(!Array.isArray(S.audit)||!S.audit.length) S.audit = DEF().audit;
 }catch(e){ S = DEF(); }
-const save=()=>{try{localStorage.setItem('ledgerly-user',JSON.stringify(S))}catch(e){}};
+S.me = Object.assign({}, S.me || DEF().me, AUTH_USER);
+const save=()=>{try{localStorage.setItem(USER_DATA_KEY,JSON.stringify(S))}catch(e){}};
 const fmt=n=>S.set.cur+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 
 let filter='all', term=SEARCH, sort={k:'i',dir:-1};
@@ -491,31 +565,64 @@ function markPaid(id,m){
   S.pay.push({inv:x.id,c:x.c,d:day(0),m:m||'Bank transfer',a:x.a});
   save(); render(); toast(id+' marked as paid');
 }
-function openInv(id){
+function invoicePaperMarkup(invoice, clientEmail=''){
+  const items=invoice.items||[];
+  const subtotal=items.reduce((sum,item)=>sum+(+item.q||0)*(+item.p||0),0);
+  const taxRate=+invoice.t||0;
+  const tax=subtotal*taxRate/100;
+  const grand=subtotal+tax;
+  const displayNumber=invoice.id||'Draft';
+  const issuer=S.set.name||'Your business';
+  const issued=invoice.i||day(0);
+  const due=invoice.d||day(30);
+  const customer=invoice.c||'Customer name';
+  const lines=items.length?items:[{d:'Add an item description',q:1,p:0}];
+  return `<article class="invoice-paper">
+    <header class="invoice-cover">
+      <div><div class="invoice-cover-brand"><span class="invoice-cover-mark">L</span><span>${esc(issuer)}</span></div>
+        <h2>INVOICE</h2><p class="invoice-cover-id"># ${esc(displayNumber)}</p>
+        <p class="invoice-cover-byline">${esc(issuer)}, ${show(issued)}</p>
+      </div>
+      <div class="invoice-cover-info">
+        <div><b>Date information</b><small>Issued ${show(issued)} · Due ${show(due)}</small></div>
+        <div><b>Invoice number</b><small>${esc(displayNumber)}</small></div>
+        <div><b>Invoice to</b><small>${esc(customer)}${clientEmail?`<br>${esc(clientEmail)}`:''}</small></div>
+        <div class="invoice-cover-total">Total due: ${fmt(grand)}</div>
+      </div>
+    </header>
+    <div class="invoice-paper-body">
+      <div class="invoice-paper-table-wrap"><table>
+        <thead><tr><th>No.</th><th>Item description</th><th>Price</th><th>Qty.</th><th>Total</th></tr></thead>
+        <tbody>${lines.map((item,index)=>`<tr><td>${String(index+1).padStart(2,'0')}.</td>
+          <td><span class="invoice-paper-item-description">${esc(item.d||'Item')}</span></td>
+          <td>${fmt(+item.p||0)}</td><td>${+item.q||0}</td><td>${fmt((+item.q||0)*(+item.p||0))}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <div class="invoice-paper-bottom">
+        <div><p class="invoice-paper-thanks">Thank you for your business</p>
+          <p class="invoice-paper-contact">${esc(S.set.mail||'')}</p>
+          <b>PAYMENT METHOD</b><p class="invoice-paper-terms">Payment due by ${show(due)}</p>
+          <b>TERMS &amp; CONDITIONS</b><p class="invoice-paper-terms">${esc(S.set.note||'Please pay by the due date.')}</p>
+        </div>
+        <div class="invoice-paper-totals">
+          <div><span>Subtotal</span><b>${fmt(subtotal)}</b></div>
+          <div><span>Tax (${taxRate}%)</span><b>${fmt(tax)}</b></div>
+          <div class="invoice-paper-total"><span>Total</span><span>${fmt(grand)}</span></div>
+          <div class="invoice-paper-signature">${esc(issuer)}<small>Thank you</small></div>
+        </div>
+      </div>
+    </div>
+  </article>`;
+}
+function openInv(id,generated=false){
   const x=S.inv.find(i=>i.id==id); if(!x)return;
-  const sub=x.items.reduce((t,i)=>t+i.q*i.p,0), tax=sub*x.t/100, cl=S.cl.find(c=>c.n==x.c);
-  $('#sheet').innerHTML=`<div class="hd">
-    <div><h2>${esc(S.set.name)}</h2><span class="sub">${esc(S.set.mail)}</span></div>
-    <div style="text-align:right"><b style="font-size:18px">${x.id}</b><br><span class="pill ${x.s}">${x.s[0].toUpperCase()+x.s.slice(1)}</span></div>
-  </div>
-  <div class="meta">
-    <div><small>Billed to</small><b>${esc(x.c)}</b><small>${esc(cl&&cl.e||'')}</small></div>
-    <div><small>Issued</small><b>${show(x.i)}</b></div>
-    <div><small>Due</small><b>${show(x.d)}</b></div>
-  </div>
-  <table><thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>
-  <tbody>${x.items.map(i=>`<tr><td>${esc(i.d||'Item')}</td><td>${i.q}</td><td>${fmt(i.p)}</td><td>${fmt(i.q*i.p)}</td></tr>`).join('')}</tbody></table>
-  <div class="tot" style="margin-top:14px">
-    <div><span>Subtotal</span><span>${fmt(sub)}</span></div>
-    <div><span>Tax (${x.t}%)</span><span>${fmt(tax)}</span></div>
-    <div class="g"><span>Total</span><span>${fmt(sub+tax)}</span></div>
-  </div>
-  <p class="note">${esc(S.set.note)}</p>
+  const cl=S.cl.find(c=>c.n==x.c);
+  $('#sheet').innerHTML=`${invoicePaperMarkup(x,cl&&cl.e||'')}
   <div class="foot noprint">
-    <button class="btn" data-del="${x.id}">Delete</button>
-    <button class="btn" data-dup="${x.id}">Duplicate</button>
-    ${x.s!='paid'?`<button class="btn" data-r="${x.id}">Send reminder</button><button class="btn" data-p="${x.id}">Mark as paid</button>`:''}
-    <button class="btn pri" id="prt">Print or save PDF</button>
+    <button class="btn" data-email-invoice="${esc(x.id)}">Email as PDF</button>
+    ${generated?'':`<button class="btn" data-del="${esc(x.id)}">Delete</button>
+    <button class="btn" data-dup="${esc(x.id)}">Duplicate</button>
+    ${x.s!='paid'?`<button class="btn" data-r="${esc(x.id)}">Send reminder</button><button class="btn" data-p="${esc(x.id)}">Mark as paid</button>`:''}
+    <button class="btn pri" id="prt">Print or save PDF</button>`}
     <button class="btn" id="vx">Close</button>
   </div>`;
   $('#vw').showModal();
@@ -534,7 +641,21 @@ function calc(){
   document.querySelectorAll('.li').forEach(r=>{const i=r.querySelectorAll('input');s+=(+i[1].value||0)*(+i[2].value||0)});
   const t=s*(+$('#tax').value||0)/100;
   $('#sb').textContent=fmt(s); $('#tx').textContent=fmt(t); $('#gr').textContent=fmt(s+t);
+  updateDraftPreview();
   return s+t;
+}
+function updateDraftPreview(){
+  const preview=$('#draft-preview');
+  if(!preview)return;
+  const customer=$('#cl').value.trim();
+  const client=S.cl.find(c=>c.n===customer);
+  const items=[...document.querySelectorAll('#items .li')].map(row=>{
+    const fields=row.querySelectorAll('input');
+    return {d:fields[0].value.trim(),q:+fields[1].value||0,p:+fields[2].value||0};
+  });
+  preview.innerHTML=invoicePaperMarkup({
+    id:nextId(),c:customer,i:$('#iss').value,d:$('#due').value,t:+$('#tax').value||0,items
+  },client&&client.e||'');
 }
 function newInv(client){
   $('#cls').innerHTML=S.cl.map(c=>`<option value="${esc(c.n)}">`).join('');
@@ -549,13 +670,14 @@ function newInv(client){
 
 function doLogout(){
   $('#pop').hidden=true;
-  if(confirm('Sign out of Ledgerly?')) $('#so').hidden=false;
+  if(confirm('Sign out of Ledgerly?')) location.href='../auth/logout.php';
 }
 
 /* ---------- RENDER FIRST (never a blank page) ---------- */
 syncMe();
 if(term) $('#q').value = term;
 render();
+if(AUTH_NOTICE) toast(AUTH_NOTICE);
 
 /* ---------- Then wire up handlers ---------- */
 $('#logout').onclick=doLogout;
@@ -583,6 +705,16 @@ document.addEventListener('click',e=>{
   const b=t.closest('button');
   if(b){
     const d=b.dataset;
+    if(d.emailInvoice!==undefined){
+      const invoice=S.inv.find(item=>item.id===d.emailInvoice);
+      if(!invoice)return;
+      const client=S.cl.find(item=>item.n===invoice.c);
+      emailDialog.dataset.invoiceId=invoice.id;
+      $('#invoice-recipient').value=client&&client.e||'';
+      emailDialog.showModal();
+      $('#invoice-recipient').focus();
+      return;
+    }
     if(d.p){e.stopPropagation();markPaid(d.p);if($('#vw').open)openInv(d.p);return}
     if(d.r){const x=S.inv.find(i=>i.id==d.r);toast('Reminder sent to '+(x?x.c:''));return}
     if(d.k){filter=d.k;invoices();return}
@@ -626,6 +758,7 @@ const itemsEl = $('#items');
 if (itemsEl) itemsEl.oninput = calc;
 const taxEl = $('#tax');
 if (taxEl) taxEl.oninput = calc;
+['cl','iss','due'].forEach(id=>{const input=$('#'+id);if(input)input.oninput=updateDraftPreview});
 const addItemEl = $('#addItem');
 if (addItemEl) addItemEl.onclick = () => line();
 const cancelEl = $('#cancel');
@@ -639,9 +772,46 @@ if (saveEl) saveEl.onclick = () => {
   if(!S.cl.some(x=>x.n==c))S.cl.push({n:c,e:''});
   const t=+$('#tax').value||0, id=nextId();
   S.inv.unshift({id,c,i:$('#iss').value||day(0),d:$('#due').value||day(30),a:Math.round(items.reduce((s,i)=>s+i.q*i.p,0)*(1+t/100)*100)/100,s:'pending',items,t});
-  save(); dlg.close();
-  if(PAGE==='invoices'){filter='all';term='';$('#q').value='';render();toast(id+' generated')}
-  else{location.href='invoices.php'}
+  save();
+  dlg.close();
+  render();
+  openInv(id,true);
+  toast(id+' generated');
+};
+
+const emailDialog=$('#emaildlg');
+const emailForm=$('#email-form');
+const emailCancel=$('#email-cancel');
+if(emailCancel)emailCancel.onclick=()=>emailDialog.close();
+if(emailForm)emailForm.onsubmit=async e=>{
+  e.preventDefault();
+  const invoice=S.inv.find(item=>item.id===emailDialog.dataset.invoiceId);
+  const recipient=$('#invoice-recipient').value.trim();
+  if(!invoice||!emailForm.reportValidity())return;
+  const send=$('#email-send');
+  send.disabled=true;
+  send.textContent='Sending…';
+  try{
+    const response=await fetch('email_invoice.php',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+      body:new URLSearchParams({
+        csrf_token:INVOICE_CSRF,
+        recipient,
+        invoice:JSON.stringify(invoice),
+        business:JSON.stringify({name:S.set.name,mail:S.set.mail,note:S.set.note,cur:S.set.cur})
+      })
+    });
+    const result=await response.json();
+    if(!response.ok||!result.success)throw new Error(result.message||'Unable to email this invoice.');
+    emailDialog.close();
+    toast('Invoice emailed to '+recipient);
+  }catch(error){
+    toast(error.message||'Unable to email this invoice.');
+  }finally{
+    send.disabled=false;
+    send.textContent='Send invoice';
+  }
 };
 
 const csvEl = $('#csv');

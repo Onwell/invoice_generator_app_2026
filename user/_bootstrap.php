@@ -1,5 +1,10 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../auth/_bootstrap.php';
+if (!isset($_SESSION['auth_user']) || !is_array($_SESSION['auth_user'])) {
+    header('Location: ../index.php?auth=login');
+    exit;
+}
 if (!defined('LEDGERLY')) define('LEDGERLY', true);
 
 function e(string $s): string {
@@ -108,6 +113,10 @@ $default = [
     ],
 ];
 
+$authUser = $_SESSION['auth_user'];
+$default['me']['n'] = (string) ($authUser['name'] ?? 'User');
+$default['me']['e'] = (string) ($authUser['email'] ?? '');
+$default['me']['role'] = 'User';
 $me = $default['me'];
 
 $jsonFlags   = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;

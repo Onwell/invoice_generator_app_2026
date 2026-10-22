@@ -1,20 +1,9 @@
 <?php
 /**
- * Ledgerly – landing page with auth modals
- *
- * The two forms post to $loginEndpoint / $signupEndpoint.
- * While both are '#', the forms run in demo mode (client-side only).
- *
- * Minimal server-side handler sketch (auth/login.php):
- *
- *   if ($_SERVER['REQUEST_METHOD'] === 'POST') {
- *       $email = filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL);
- *       $pass  = $_POST['password'] ?? '';
- *       // verify credentials, start session, then:
- *       header('Location: /app.php'); exit;
- *   }
+ * Ledgerly – landing page with login and registration modals.
  */
 declare(strict_types=1);
+require_once __DIR__ . '/auth/_bootstrap.php';
 
 function e(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -25,11 +14,14 @@ $year = (int) date('Y');
 /* ---- Links & endpoints ---- */
 $signInUrl      = '#signin';          // fallback href
 $signUpUrl      = '#signup';          // fallback href
-$loginEndpoint  = '#';                // e.g. '/auth/login.php'
-$signupEndpoint = '#';                // e.g. '/auth/signup.php'
-$appUrl         = '#';                // where "Continue to dashboard" goes
+$loginEndpoint  = 'auth/login.php';
+$signupEndpoint = 'auth/register.php';
+$appUrl         = 'user/overview.php';
 $loginDemo      = $loginEndpoint === '#';
 $signupDemo     = $signupEndpoint === '#';
+$authFlash      = auth_pull_flash();
+$authCsrf       = auth_csrf_token();
+$jsonFlags      = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
 
 /* ---- Primary navigation ---- */
 $navLinks = [
@@ -470,6 +462,9 @@ h3{font-size:19px;font-weight:700;letter-spacing:-.015em}
 .auth.done .auth-tabs{display:none}
 .auth-form h2{font-size:23px;font-weight:800;letter-spacing:-.03em}
 .auth-sub{color:var(--muted);font-size:14px;margin:4px 0 20px}
+.auth-message{padding:11px 13px;border-radius:10px;margin:0 0 16px;font-size:13.5px}
+.auth-message.error{background:#fff0ee;color:#9b2c20}
+.auth-message.success{background:var(--soft);color:var(--accent)}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
 .field label{font-size:13.5px;font-weight:600;color:#2c3733}
 .field label .opt{color:var(--muted);font-weight:500}
@@ -923,9 +918,11 @@ h3{font-size:19px;font-weight:700;letter-spacing:-.015em}
       <button type="button" role="tab" id="tab-in" data-auth-tab="in" aria-selected="true" aria-controls="form-in">Sign in</button>
       <button type="button" role="tab" id="tab-up" data-auth-tab="up" aria-selected="false" aria-controls="form-up">Create account</button>
     </div>
+    <div class="auth-message" id="auth-message" role="alert" hidden></div>
 
     <!-- Sign in -->
     <form id="form-in" class="auth-form" action="<?= e($loginEndpoint) ?>" method="post"<?= $loginDemo ? ' data-demo="1"' : '' ?> novalidate>
+      <input type="hidden" name="csrf_token" value="<?= e($authCsrf) ?>">
       <h2>Welcome back</h2>
       <p class="auth-sub">Sign in to keep managing your invoices.</p>
 
@@ -959,6 +956,7 @@ h3{font-size:19px;font-weight:700;letter-spacing:-.015em}
 
     <!-- Sign up -->
     <form id="form-up" class="auth-form" action="<?= e($signupEndpoint) ?>" method="post"<?= $signupDemo ? ' data-demo="1"' : '' ?> novalidate hidden>
+      <input type="hidden" name="csrf_token" value="<?= e($authCsrf) ?>">
       <h2>Create your account</h2>
       <p class="auth-sub">Free forever. No credit card required.</p>
 
@@ -1014,10 +1012,9 @@ h3{font-size:19px;font-weight:700;letter-spacing:-.015em}
 
     <div class="auth-success" id="ok-up" hidden>
       <div class="ok-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div>
-      <h2>Check your inbox</h2>
-      <p id="ok-up-msg">We've sent a confirmation link.</p>
-      <button class="btn pri block" type="button" data-auth-close>Back to site</button>
-      <p class="note sub">Demo mode — point <code>$signupEndpoint</code> at your PHP handler to create real accounts.</p>
+      <h2>Account created</h2>
+      <p id="ok-up-msg">Your account is ready. Sign in to continue.</p>
+      <button class="btn pri block" type="button" data-auth-tab="in">Sign in</button>
     </div>
   </div>
 </div>
@@ -1096,6 +1093,8 @@ if('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: red
   const okUp   = document.getElementById('ok-up');
   const meter  = document.getElementById('pw-meter');
   const forgotNote = document.getElementById('forgot-note');
+  const authMessage = document.getElementById('auth-message');
+  const authFlash = <?= json_encode($authFlash, $jsonFlags) ?>;
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   let lastFocus = null;
 
@@ -1121,6 +1120,8 @@ if('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: red
 
   function setMode(mode){
     auth.classList.remove('done');
+    authMessage.hidden = true;
+    authMessage.textContent = '';
     okIn.hidden = true;
     okUp.hidden = true;
     formIn.hidden = mode !== 'in';
@@ -1185,7 +1186,7 @@ if('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: red
       okIn.hidden = false;
       setTimeout(() => { const b = okIn.querySelector('button,a'); if(b) b.focus(); }, 0);
     } else {
-      byId('ok-up-msg').textContent = "We've sent a confirmation link to " + email + '.';
+      byId('ok-up-msg').textContent = "Your account is ready. Sign in to continue.";
       okUp.hidden = false;
       setTimeout(() => { const b = okUp.querySelector('button,a'); if(b) b.focus(); }, 0);
     }
@@ -1199,6 +1200,24 @@ if('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: red
   });
 
   tabs.forEach(t => t.addEventListener('click', () => setMode(t.dataset.authTab)));
+
+  if(authFlash && typeof authFlash.message === 'string'){
+    const mode = authFlash.form === 'up' ? 'up' : 'in';
+    openAuth(mode);
+    if(authFlash.type === 'success'){
+      showSuccess('up', '');
+      byId('ok-up-msg').textContent = authFlash.message;
+    } else {
+      authMessage.textContent = authFlash.message;
+      authMessage.className = 'auth-message error';
+      authMessage.hidden = false;
+    }
+  } else {
+    const query = new URLSearchParams(window.location.search);
+    if(query.get('auth') === 'login' || query.get('auth') === 'register'){
+      openAuth(query.get('auth') === 'register' ? 'up' : 'in');
+    }
+  }
 
   /* focus trap + escape */
   auth.addEventListener('keydown', e => {

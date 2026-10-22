@@ -6,6 +6,45 @@
  * Preview: php -S localhost:8000  →  http://localhost:8000/admin.php
  */
 declare(strict_types=1);
+require_once __DIR__ . '/../auth/_bootstrap.php';
+
+if (!isset($_SESSION['auth_user']['id'])) {
+    header('Location: ../index.php?auth=login');
+    exit;
+}
+
+try {
+    $adminDb = auth_db();
+    $currentUserQuery = $adminDb->prepare('SELECT id, full_name, email, role FROM users WHERE id = :id LIMIT 1');
+    $currentUserQuery->execute(['id' => (int) $_SESSION['auth_user']['id']]);
+    $currentAdmin = $currentUserQuery->fetch();
+    if (!$currentAdmin || $currentAdmin['role'] !== 'admin') {
+        auth_flash('error', 'in', 'Administrator access is required to open the admin dashboard.');
+        header('Location: ../index.php?auth=login');
+        exit;
+    }
+    $adminUsersQuery = $adminDb->query(
+        "SELECT id, full_name, email, role, created_at FROM users ORDER BY created_at DESC, id DESC"
+    );
+    $adminUsers = array_map(
+        static function (array $user): array {
+            return [
+                'id' => (int) $user['id'],
+                'n' => $user['full_name'],
+                'e' => $user['email'],
+                'role' => $user['role'] === 'admin' ? 'Admin' : 'User',
+                'plan' => 'non-subscribed',
+                'since' => substr((string) $user['created_at'], 0, 10),
+                'suspended' => false,
+            ];
+        },
+        $adminUsersQuery->fetchAll()
+    );
+} catch (PDOException $exception) {
+    error_log('Admin user-list database error: ' . $exception->getMessage());
+    http_response_code(500);
+    exit('Unable to load the admin dashboard accounts.');
+}
 
 function e(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -82,16 +121,7 @@ $default = [
         ['inv'=>'INV-1053','c'=>'Zambezi Foods','d'=>relDay(-5),'m'=>'Card','a'=>3340],
         ['inv'=>'INV-1054','c'=>'Baobab Capital','d'=>relDay(-2),'m'=>'Bank transfer','a'=>9800],
     ],
-    'users' => [
-        ['n'=>'Amara Moyo','e'=>'amara@ledgerly.app','role'=>'Administrator','plan'=>'subscribed','since'=>relDay(-320),'suspended'=>false],
-        ['n'=>'Tendai Ncube','e'=>'tendai@ledgerly.app','role'=>'Accountant','plan'=>'subscribed','since'=>relDay(-210),'suspended'=>false],
-        ['n'=>'Grace Phiri','e'=>'grace@ledgerly.app','role'=>'Accountant','plan'=>'subscribed','since'=>relDay(-12),'suspended'=>false],
-        ['n'=>'Sam Okoro','e'=>'sam@ledgerly.app','role'=>'Administrator','plan'=>'subscribed','since'=>relDay(-160),'suspended'=>false],
-        ['n'=>'Nia Banda','e'=>'nia@ledgerly.app','role'=>'Accountant','plan'=>'subscribed','since'=>relDay(-64),'suspended'=>false],
-        ['n'=>'Kofi Mensah','e'=>'kofi@ledgerly.app','role'=>'Billing clerk','plan'=>'non-subscribed','since'=>relDay(-95),'suspended'=>false],
-        ['n'=>'Lerato Dube','e'=>'lerato@ledgerly.app','role'=>'Viewer','plan'=>'non-subscribed','since'=>relDay(-40),'suspended'=>false],
-        ['n'=>'Thabo Sithole','e'=>'thabo@ledgerly.app','role'=>'Viewer','plan'=>'non-subscribed','since'=>relDay(-7),'suspended'=>true],
-    ],
+    'users' => [],
     'me' => [
         'e'=>'amara@ledgerly.app','phone'=>'+263 77 123 4567','tz'=>'Africa/Harare',
         'plan'=>'Ledgerly Pro','price'=>49,'cycle'=>'Monthly','renew'=>relDay(12),
@@ -135,10 +165,17 @@ $default = [
     ],
 ];
 
-$me = $default['users'][0]; /* display name for server-rendered sidebar */
+$default['users'] = $adminUsers;
+$me = [
+    'n' => $currentAdmin['full_name'],
+    'e' => $currentAdmin['email'],
+    'role' => 'Admin',
+];
 
 $jsonFlags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
 $defaultJson = json_encode($default, $jsonFlags) ?: '{}';
+$adminUsersJson = json_encode($adminUsers, $jsonFlags) ?: '[]';
+$adminCsrfToken = auth_csrf_token();
 $pagesJson   = json_encode($pages,   $jsonFlags) ?: '{}';
 $iconsJson   = json_encode($icons,   $jsonFlags) ?: '{}';
 ?><!DOCTYPE html>
@@ -447,6 +484,8 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
 const IC    = <?= $iconsJson ?>;
 const PAGES = <?= $pagesJson ?>;
 const __INITIAL__ = <?= $defaultJson ?>;
+const SERVER_USERS = <?= $adminUsersJson ?>;
+const ADMIN_CSRF = <?= json_encode($adminCsrfToken, $jsonFlags) ?>;
 const DEF   = () => JSON.parse(JSON.stringify(__INITIAL__));
 
 const $=s=>document.querySelector(s);
@@ -473,6 +512,7 @@ try{
 if(!S.me||!S.me.plan)S.me=DEF().me;
 if(!Array.isArray(S.backups))S.backups=DEF().backups;
 if(!S.bk)S.bk=DEF().bk;
+S.users=SERVER_USERS;
 const save=()=>{try{localStorage.setItem('ledgerly',JSON.stringify(S))}catch(e){}};
 const fmt=n=>S.set.cur+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 let filter='all',ufilter='all',afilter='all',term='',sort={k:'i',dir:-1},page=<?= json_encode($initialPage, $jsonFlags) ?>;
@@ -540,21 +580,14 @@ function clients(){
 }
 function usersView(){
   const u=S.users||[];
-  const n=k=>k=='all'?u.length:k=='suspended'?u.filter(x=>x.suspended).length:u.filter(x=>x.plan==k).length;
-  $('#utabs').innerHTML=[['all','All users'],['subscribed','Subscribed'],['non-subscribed','Not subscribed'],['suspended','Suspended']].map(([k,l])=>`<button class="tab ${ufilter==k?'on':''}" data-uk="${k}">${l}<i>${n(k)}</i></button>`).join('');
+  const n=k=>k=='all'?u.length:u.filter(x=>(x.role==='Admin'?'admin':'user')==k).length;
+  $('#utabs').innerHTML=[['all','All users'],['admin','Admins'],['user','Users']].map(([k,l])=>`<button class="tab ${ufilter==k?'on':''}" data-uk="${k}">${l}<i>${n(k)}</i></button>`).join('');
   const t=term.toLowerCase();
-  const l=u.filter(x=>(ufilter=='all'||(ufilter=='suspended'?x.suspended:x.plan==ufilter))&&(x.n+' '+x.e+' '+x.role).toLowerCase().includes(t));
+  const l=u.filter(x=>(ufilter=='all'||(x.role==='Admin'?'admin':'user')==ufilter)&&(x.n+' '+x.e+' '+x.role).toLowerCase().includes(t));
   $('#ug').innerHTML=l.map(x=>`<div class="card cc">
     <div class="t"><div class="av">${ini(x.n)}</div><div><b>${esc(x.n)}</b><span class="sub">${esc(x.e)}</span></div></div>
-    <dl><div><dt>Role</dt><dd style="font-size:14px">${esc(x.role)}</dd></div><div><dt>Registered</dt><dd style="font-size:14px">${show(x.since)}</dd></div></dl>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <span class="pill ${x.plan=='subscribed'?'paid':'pending'}">${x.plan=='subscribed'?'Subscribed':'Not subscribed'}</span>
-      ${x.suspended?'<span class="pill overdue">Login suspended</span>':''}
-    </div>
-    <div class="row">
-      <button class="btn sm ${x.suspended?'pri':''}" data-susp="${esc(x.e)}">${x.suspended?'Reactivate login':'Suspend login'}</button>
-      <button class="btn sm" data-ulog="${esc(x.n)}">Audit log</button>
-    </div>
+    <dl><div><dt>Role</dt><dd style="font-size:14px"><select class="btn sm" data-role-id="${x.id}" aria-label="Role for ${esc(x.n)}"><option value="user"${x.role=='User'?' selected':''}>User</option><option value="admin"${x.role=='Admin'?' selected':''}>Admin</option></select></dd></div><div><dt>Registered</dt><dd style="font-size:14px">${show(x.since)}</dd></div></dl>
+    <div class="row"><span class="sub">Role changes are saved immediately.</span></div>
   </div>`).join('');
   $('#uempty').hidden=l.length>0;
   $('#ucnt').textContent=l.length+' user'+(l.length==1?'':'s');
@@ -750,7 +783,7 @@ function newInv(client){
 function doLogout(){
   $('#pop').hidden=true;
   if(confirm('Sign out of Ledgerly?')){
-    $('#so').hidden=false;
+    location.href='../auth/logout.php';
   }
 }
 $('#logout').onclick=doLogout;
@@ -833,6 +866,34 @@ document.addEventListener('click',e=>{
   if(t.id=='vx'){$('#vw').close();return}
   const tr=t.closest('tr[data-o]');if(tr)openInv(tr.dataset.o);
   const th=t.closest('th[data-s]');if(th){const k=th.dataset.s;sort=sort.k==k?{k,dir:-sort.dir}:{k,dir:1};invoices()}
+});
+
+document.addEventListener('change', async e=>{
+  const select=e.target.closest('[data-role-id]');
+  if(!select)return;
+  const user=S.users.find(x=>String(x.id)===select.dataset.roleId);
+  if(!user)return;
+  const previous=user.role==='Admin'?'admin':'user';
+  const next=select.value;
+  select.disabled=true;
+  try{
+    const response=await fetch('update_role.php',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+      body:new URLSearchParams({csrf_token:ADMIN_CSRF,user_id:select.dataset.roleId,role:next})
+    });
+    const result=await response.json();
+    if(!response.ok||!result.success)throw new Error(result.message||'Unable to update this role.');
+    user.role=next==='admin'?'Admin':'User';
+    save();
+    usersView();
+    toast(result.message);
+  }catch(error){
+    select.value=previous;
+    toast(error.message||'Unable to update this role.');
+  }finally{
+    select.disabled=false;
+  }
 });
 $('#bell').onclick=e=>{e.stopPropagation();$('#pop').hidden=!$('#pop').hidden};
 $('#pop').onclick=e=>e.stopPropagation();
