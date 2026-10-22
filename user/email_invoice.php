@@ -2,11 +2,10 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../auth/_bootstrap.php';
 
-header('Content-Type: application/json; charset=utf-8');
-
 function invoice_email_response(int $status, array $response): never
 {
     http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -35,9 +34,9 @@ function invoice_pdf_document(array $invoice, array $business): string
 
     $pages = [];
     foreach ($items as $pageIndex => $pageItems) {
-        $commands = "0.52 0.21 0.66 rg 0 550 408 242 re f\n";
-        $commands .= "0.77 0.17 0.47 rg 408 550 102 242 re f\n";
-        $commands .= "0.95 0.22 0.24 rg 510 550 102 242 re f\n";
+        $commands = "0.05 0.35 0.28 rg 0 550 408 242 re f\n";
+        $commands .= "0.08 0.42 0.33 rg 408 550 102 242 re f\n";
+        $commands .= "0.04 0.29 0.23 rg 510 550 102 242 re f\n";
         $commands .= "1 1 1 rg 35 38 542 555 re f\n";
         $commands .= invoice_pdf_text(60, 748, 13, mb_strimwidth($business['name'], 0, 42, '…', 'UTF-8'), true, '1 1 1');
         $commands .= invoice_pdf_text(60, 695, 30, 'INVOICE', true, '1 1 1');
@@ -71,15 +70,41 @@ function invoice_pdf_document(array $invoice, array $business): string
         }
 
         if ($pageIndex === count($items) - 1) {
-            $commands .= invoice_pdf_text(60, 105, 15, 'Thank you for your business', true);
-            $commands .= invoice_pdf_text(60, 84, 9, $business['mail']);
+            $commands .= invoice_pdf_text(60, 170, 15, 'Thank you for your business', true);
+            $commands .= invoice_pdf_text(60, 154, 9, $business['mail']);
+            $paymentMethods = array_slice(array_values(array_filter(
+                array_map('trim', preg_split('/\R/u', $business['payment_methods']) ?: []),
+                static fn(string $method): bool => $method !== ''
+            )), 0, 3);
+            $bankDetails = array_filter([
+                'Bank: ' . $business['bank_name'],
+                'Account name: ' . $business['bank_account_name'],
+                'Account number: ' . $business['bank_account_number'],
+                'Branch: ' . $business['bank_branch'],
+                'SWIFT / BIC: ' . $business['bank_swift'],
+            ], static fn(string $detail): bool => !str_ends_with($detail, ': '));
+            $paymentY = 136;
+            if ($paymentMethods !== [] || $bankDetails !== []) {
+                $commands .= invoice_pdf_text(60, $paymentY, 9, 'PAYMENT DETAILS', true);
+                $paymentY -= 13;
+                foreach ($paymentMethods as $index => $method) {
+                    $label = $index === 0 ? 'Methods: ' : '          ';
+                    $commands .= invoice_pdf_text(60, $paymentY, 8, $label . mb_strimwidth($method, 0, 45, '…', 'UTF-8'));
+                    $paymentY -= 11;
+                }
+                foreach ($bankDetails as $detail) {
+                    $commands .= invoice_pdf_text(60, $paymentY, 8, mb_strimwidth($detail, 0, 54, '…', 'UTF-8'));
+                    $paymentY -= 11;
+                }
+            }
             $commands .= invoice_pdf_text(370, 112, 10, 'Subtotal: ' . $business['currency'] . number_format($invoice['subtotal'], 2));
             $commands .= invoice_pdf_text(370, 94, 10, 'Tax: ' . $business['currency'] . number_format($invoice['tax'], 2));
-            $commands .= "0.52 0.21 0.66 rg 360 55 190 27 re f\n";
+            $commands .= "0.05 0.35 0.28 rg 360 55 190 27 re f\n";
             $commands .= invoice_pdf_text(372, 64, 12, 'TOTAL: ' . $business['currency'] . number_format($invoice['total'], 2), true, '1 1 1');
         } else {
             $commands .= invoice_pdf_text(60, 70, 10, 'Continued on next page', false, '0.4 0.4 0.4');
         }
+        $commands .= invoice_pdf_text(60, 24, 7, 'Mari Flow - Invoice Generator App by Smug Solutions.', false, '0.4 0.4 0.4');
         $commands .= invoice_pdf_text(520, 24, 8, 'Page ' . ($pageIndex + 1) . ' of ' . count($items), false, '0.4 0.4 0.4');
         $pages[] = $commands;
     }
@@ -117,27 +142,22 @@ function invoice_pdf_document(array $invoice, array $business): string
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    invoice_email_response(405, ['success' => false, 'message' => 'Use POST to email an invoice.']);
+    invoice_email_response(405, ['success' => false, 'message' => 'Use POST to generate an invoice PDF.']);
 }
 if (!isset($_SESSION['auth_user']['id'])) {
-    invoice_email_response(401, ['success' => false, 'message' => 'Sign in to email invoices.']);
+    invoice_email_response(401, ['success' => false, 'message' => 'Sign in to generate invoice PDFs.']);
 }
 if (!auth_valid_csrf()) {
     invoice_email_response(403, ['success' => false, 'message' => 'Your session expired. Refresh the page and try again.']);
 }
 
-$recipientInput = $_POST['recipient'] ?? '';
 $invoiceInput = $_POST['invoice'] ?? '';
 $businessInput = $_POST['business'] ?? '';
-if (!is_string($recipientInput) || !is_string($invoiceInput) || !is_string($businessInput)) {
-    invoice_email_response(422, ['success' => false, 'message' => 'Invoice email details are incomplete.']);
+if (!is_string($invoiceInput) || !is_string($businessInput)) {
+    invoice_email_response(422, ['success' => false, 'message' => 'Invoice details are incomplete.']);
 }
-$recipient = filter_var(trim($recipientInput), FILTER_VALIDATE_EMAIL);
 $invoice = json_decode($invoiceInput, true);
 $business = json_decode($businessInput, true);
-if ($recipient === false) {
-    invoice_email_response(422, ['success' => false, 'message' => 'Enter a valid recipient email address.']);
-}
 if (!is_array($invoice) || !is_array($business)) {
     invoice_email_response(422, ['success' => false, 'message' => 'Invoice details could not be read.']);
 }
@@ -190,18 +210,32 @@ foreach ($itemsInput as $item) {
     ];
 }
 if ($items === []) {
-    invoice_email_response(422, ['success' => false, 'message' => 'Add at least one invoice item before emailing.']);
+    invoice_email_response(422, ['success' => false, 'message' => 'Add at least one invoice item before generating a PDF.']);
 }
 
 $businessName = $business['name'] ?? 'Ledgerly';
 $businessMail = $business['mail'] ?? '';
 $currency = $business['cur'] ?? '$';
+$paymentMethods = $business['paymentMethods'] ?? '';
+$bankDetailsInput = [
+    'bank_name' => $business['bankName'] ?? '',
+    'bank_account_name' => $business['bankAccountName'] ?? '',
+    'bank_account_number' => $business['bankAccountNumber'] ?? '',
+    'bank_branch' => $business['bankBranch'] ?? '',
+    'bank_swift' => $business['bankSwift'] ?? '',
+];
 if (
     !is_string($businessName) || trim($businessName) === '' || mb_strlen($businessName) > 160
     || !is_string($businessMail) || mb_strlen($businessMail) > 254
     || !is_string($currency) || mb_strlen($currency) > 8
+    || !is_string($paymentMethods) || mb_strlen($paymentMethods) > 500
 ) {
     invoice_email_response(422, ['success' => false, 'message' => 'Business details are invalid.']);
+}
+foreach ($bankDetailsInput as $value) {
+    if (!is_string($value) || mb_strlen($value) > 120) {
+        invoice_email_response(422, ['success' => false, 'message' => 'Bank details are invalid.']);
+    }
 }
 
 $tax = $subtotal * (float) $taxRate / 100;
@@ -217,36 +251,17 @@ $business = [
     'name' => trim($businessName),
     'mail' => $businessMail,
     'currency' => $currency,
+    'payment_methods' => trim($paymentMethods),
+    'bank_name' => trim($bankDetailsInput['bank_name']),
+    'bank_account_name' => trim($bankDetailsInput['bank_account_name']),
+    'bank_account_number' => trim($bankDetailsInput['bank_account_number']),
+    'bank_branch' => trim($bankDetailsInput['bank_branch']),
+    'bank_swift' => trim($bankDetailsInput['bank_swift']),
 ];
 
 $pdf = invoice_pdf_document($invoice, $business);
-$from = getenv('MAIL_FROM') ?: 'no-reply@localhost';
-if (filter_var($from, FILTER_VALIDATE_EMAIL) === false) {
-    error_log('Invoice email is not configured with a valid MAIL_FROM address.');
-    invoice_email_response(500, ['success' => false, 'message' => 'Email sending is not configured with a valid MAIL_FROM address.']);
-}
-$boundary = '=_Ledgerly_' . bin2hex(random_bytes(18));
-$safeBusinessName = str_replace(["\r", "\n", '"'], ['', '', "'"], $business['name']);
-$subject = preg_replace('/[\r\n]+/', ' ', 'Invoice ' . $invoice['id'] . ' from ' . $business['name']);
-$headers = [
-    'From' => $safeBusinessName . ' <' . $from . '>',
-    'MIME-Version' => '1.0',
-    'Content-Type' => 'multipart/mixed; boundary="' . $boundary . '"',
-];
-$body = "--{$boundary}\r\n";
-$body .= "Content-Type: text/plain; charset=UTF-8\r\n";
-$body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
-$body .= "Please find invoice {$invoice['id']} from {$business['name']} attached as a PDF.\r\n";
-$body .= "--{$boundary}\r\n";
-$body .= "Content-Type: application/pdf; name=\"invoice-{$invoice['id']}.pdf\"\r\n";
-$body .= "Content-Transfer-Encoding: base64\r\n";
-$body .= "Content-Disposition: attachment; filename=\"invoice-{$invoice['id']}.pdf\"\r\n\r\n";
-$body .= chunk_split(base64_encode($pdf)) . "\r\n";
-$body .= "--{$boundary}--\r\n";
-
-if (!mail($recipient, $subject, $body, $headers)) {
-    error_log('Invoice email delivery failed for invoice ' . $invoice['id']);
-    invoice_email_response(502, ['success' => false, 'message' => 'Email could not be sent. Configure PHP mail/SMTP, then try again.']);
-}
-
-invoice_email_response(200, ['success' => true]);
+header('Content-Type: application/pdf');
+header('Content-Disposition: attachment; filename="invoice-' . $invoiceId . '.pdf"');
+header('Content-Length: ' . strlen($pdf));
+header('Cache-Control: private, no-store, max-age=0');
+echo $pdf;

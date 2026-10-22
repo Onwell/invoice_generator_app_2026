@@ -142,10 +142,18 @@ tbody tr.go{cursor:pointer}tbody tr.go:hover{background:var(--bg)}
 .cc dt{color:var(--muted);font-size:12.5px}.cc dd{font-weight:600;font-size:16px}
 .cc .row{display:flex;gap:8px}.cc .row .btn{flex:1}
 
-.set{max-width:760px}
+.set{width:100%;max-width:none}
 .set .sec{padding:24px}
 .set .f{margin-top:16px}
-.set .sec+.sec{margin-top:16px}
+.set .sec+.sec{margin-top:0}
+.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.account-grid .sec{min-width:0}
+.account-features{grid-column:1/-1}
+.account-payment .f{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:820px){
+  .account-grid{grid-template-columns:1fr}
+  .account-features{grid-column:auto}
+}
 
 dialog{border:0;border-radius:18px;padding:0;width:min(640px,94vw);max-height:92vh;background:var(--surface);color:var(--ink);box-shadow:0 30px 80px rgba(0,0,0,.28)}
 dialog::backdrop{background:rgba(10,18,15,.5)}
@@ -158,7 +166,7 @@ dialog[open]{animation:pop .18s ease-out}
 .invoice-preview-stage{min-width:0;padding:16px;background:#eceeef;border-radius:14px}
 .invoice-preview-label{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
 .invoice-paper{max-width:720px;margin:0 auto;background:#fff;color:#17191b;box-shadow:0 8px 24px rgba(20,25,30,.12);font-size:12px;line-height:1.45;overflow:hidden}
-.invoice-cover{display:grid;grid-template-columns:1fr .85fr;gap:28px;padding:30px 34px;color:#fff;background:linear-gradient(112deg,#8435a8 0%,#c52b78 56%,#f2393d 100%)}
+.invoice-cover{display:grid;grid-template-columns:1fr .85fr;gap:28px;padding:30px 34px;color:#fff;background:linear-gradient(112deg,#0E5A47 0%,#146B55 56%,#0B493A 100%)}
 .invoice-cover-brand{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700}
 .invoice-cover-mark{display:grid;place-items:center;width:31px;height:31px;border:1px solid rgba(255,255,255,.7);border-radius:9px;font-size:17px}
 .invoice-paper .invoice-cover h2{font-size:30px;letter-spacing:.02em;margin:25px 0 0}
@@ -189,11 +197,13 @@ dialog[open]{animation:pop .18s ease-out}
 .invoice-paper-thanks{font-size:16px;font-weight:700;margin-bottom:8px}
 .invoice-paper-contact{color:#52565a;font-size:10px;margin-bottom:15px}
 .invoice-paper-terms{font-size:10px;color:#52565a;margin-top:5px;white-space:pre-line}
+.invoice-payment-lines{font-size:10px;color:#52565a;margin:5px 0 12px;white-space:pre-line;overflow-wrap:anywhere}
 .invoice-paper-totals{display:grid;align-content:start;gap:8px}
 .invoice-paper-totals>div{display:flex;justify-content:space-between;gap:10px}
-.invoice-paper-total{padding:9px 12px;border-radius:9px;color:#fff;background:linear-gradient(112deg,#8435a8,#c52b78 56%,#f2393d 100%);font-size:14px;font-weight:700}
+.invoice-paper-total{padding:9px 12px;border-radius:9px;color:#fff;background:linear-gradient(112deg,#0E5A47,#146B55 56%,#0B493A);font-size:14px;font-weight:700}
 .invoice-paper-signature{text-align:center;margin-top:14px;font-size:14px;font-weight:700}
 .invoice-paper-signature small{display:block;font-size:9px;font-weight:400;color:#65696d}
+.invoice-paper-footer{margin-top:18px;padding-top:10px;border-top:1px solid #dfe6e3;text-align:center;color:#66716d;font-size:9px}
 .invoice-preview-dialog{width:min(900px,94vw);max-height:92vh;overflow:auto;margin:auto}
 .invoice-preview-dialog .sheet{padding:24px}
 .m h2{font-size:20px;margin-bottom:4px}
@@ -227,7 +237,16 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
 .so-card h2{font-size:20px}
 .so-card p{color:var(--muted);margin-bottom:10px}
 
-@media print{.app,.toast,.noprint,.so{display:none!important}dialog{position:static;box-shadow:none;width:100%;max-height:none}dialog::backdrop{display:none}}
+@media print{
+  body *{visibility:hidden!important}
+  #vw,#vw *{visibility:visible!important}
+  #vw{position:static!important;display:block!important;width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important;margin:0!important;padding:0!important;box-shadow:none!important;border-radius:0!important}
+  #vw::backdrop{display:none}
+  #vw .noprint{display:none!important}
+  #sheet{padding:0!important}
+  .invoice-paper{max-width:none;box-shadow:none;break-inside:avoid}
+  .invoice-cover,.invoice-paper-total{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 
 @media (max-width:1100px){.kpis{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}main{padding:24px 24px 56px}}
 @media (max-width:820px){
@@ -266,6 +285,7 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
 @media (max-width:520px){
   .kpis{grid-template-columns:1fr 1fr;gap:10px}.kpi{padding:16px}.kpi b{font-size:21px}
   .f{grid-template-columns:1fr}.m{padding:22px 18px}
+  .account-payment .f{grid-template-columns:1fr}
   .sheet .meta{grid-template-columns:1fr 1fr}
   .tools .btn.pri span{display:none}.tools .btn.pri{width:42px;padding:0}
   dialog{width:100vw;max-width:100vw;margin:auto 0 0;border-radius:18px 18px 0 0;max-height:94vh}
@@ -332,7 +352,7 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
 </nav>
 
 <dialog id="dlg" class="invoice-dialog"><div class="m">
-  <h2>Create invoice</h2><p>Fill in the details. The total updates as you type.</p>
+  <h2 id="invoice-editor-title">Create invoice</h2><p id="invoice-editor-description">Fill in the details. The total updates as you type.</p>
   <div class="invoice-editor-layout">
     <div class="invoice-editor-fields">
       <div class="f"><label>Client<input id="cl" list="cls" placeholder="Choose or type a client"></label><datalist id="cls"></datalist>
@@ -351,9 +371,9 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
 
 <dialog id="emaildlg"><form class="m" id="email-form">
   <h2>Email invoice as PDF</h2>
-  <p>The invoice will be attached as a PDF.</p>
+  <p>Where supported, your device's share sheet can send the PDF as an attachment. Otherwise, download the attached email draft and open it with your email app.</p>
   <label>Recipient email<input id="invoice-recipient" type="email" autocomplete="email" required></label>
-  <div class="foot"><button class="btn" id="email-cancel" type="button">Cancel</button><button class="btn pri" id="email-send" type="submit">Send invoice</button></div>
+  <div class="foot"><button class="btn" id="email-cancel" type="button">Cancel</button><button class="btn pri" id="email-send" type="submit">Email PDF</button></div>
 </form></dialog>
 
 <dialog id="cdlg"><div class="m"><h2>Add client</h2><p>Saved clients appear when you create invoices.</p>
@@ -399,6 +419,7 @@ try{
   if(!Array.isArray(S.audit)||!S.audit.length) S.audit = DEF().audit;
 }catch(e){ S = DEF(); }
 S.me = Object.assign({}, S.me || DEF().me, AUTH_USER);
+S.set = Object.assign({}, DEF().set, S.set || {});
 const save=()=>{try{localStorage.setItem(USER_DATA_KEY,JSON.stringify(S))}catch(e){}};
 const fmt=n=>S.set.cur+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 
@@ -520,6 +541,12 @@ function account(){
   $('#ac-mail').value=m.e;
   $('#ac-phone').value=m.phone||'';
   $('#ac-tz').value=m.tz||'Africa/Harare';
+  $('#ac-payment-methods').value=S.set.paymentMethods||'';
+  $('#ac-bank-name').value=S.set.bankName||'';
+  $('#ac-bank-account-name').value=S.set.bankAccountName||'';
+  $('#ac-bank-account-number').value=S.set.bankAccountNumber||'';
+  $('#ac-bank-branch').value=S.set.bankBranch||'';
+  $('#ac-bank-swift').value=S.set.bankSwift||'';
 
   $('#ac-sec').innerHTML=`
     <li><div class="av">✓</div><div><b>Email verified</b><small>${esc(m.e)}</small></div><span class="pill paid">Verified</span></li>
@@ -577,6 +604,14 @@ function invoicePaperMarkup(invoice, clientEmail=''){
   const due=invoice.d||day(30);
   const customer=invoice.c||'Customer name';
   const lines=items.length?items:[{d:'Add an item description',q:1,p:0}];
+  const paymentMethods=(S.set.paymentMethods||'').trim();
+  const bankDetails=[
+    ['Bank',S.set.bankName],
+    ['Account name',S.set.bankAccountName],
+    ['Account number',S.set.bankAccountNumber],
+    ['Branch',S.set.bankBranch],
+    ['SWIFT / BIC',S.set.bankSwift]
+  ].filter(([,value])=>String(value||'').trim());
   return `<article class="invoice-paper">
     <header class="invoice-cover">
       <div><div class="invoice-cover-brand"><span class="invoice-cover-mark">L</span><span>${esc(issuer)}</span></div>
@@ -600,7 +635,10 @@ function invoicePaperMarkup(invoice, clientEmail=''){
       <div class="invoice-paper-bottom">
         <div><p class="invoice-paper-thanks">Thank you for your business</p>
           <p class="invoice-paper-contact">${esc(S.set.mail||'')}</p>
-          <b>PAYMENT METHOD</b><p class="invoice-paper-terms">Payment due by ${show(due)}</p>
+          ${(paymentMethods||bankDetails.length)?`<b>PAYMENT DETAILS</b>`:''}
+          ${paymentMethods?`<p class="invoice-payment-lines">${esc(paymentMethods)}</p>`:''}
+          ${bankDetails.length?`<p class="invoice-payment-lines">${bankDetails.map(([label,value])=>`<b>${esc(label)}:</b> ${esc(String(value))}`).join('<br>')}</p>`:''}
+          <b>PAYMENT DUE</b><p class="invoice-paper-terms">By ${show(due)}</p>
           <b>TERMS &amp; CONDITIONS</b><p class="invoice-paper-terms">${esc(S.set.note||'Please pay by the due date.')}</p>
         </div>
         <div class="invoice-paper-totals">
@@ -610,6 +648,7 @@ function invoicePaperMarkup(invoice, clientEmail=''){
           <div class="invoice-paper-signature">${esc(issuer)}<small>Thank you</small></div>
         </div>
       </div>
+      <footer class="invoice-paper-footer">Mari Flow - Invoice Generator App by Smug Solutions.</footer>
     </div>
   </article>`;
 }
@@ -618,11 +657,13 @@ function openInv(id,generated=false){
   const cl=S.cl.find(c=>c.n==x.c);
   $('#sheet').innerHTML=`${invoicePaperMarkup(x,cl&&cl.e||'')}
   <div class="foot noprint">
-    <button class="btn" data-email-invoice="${esc(x.id)}">Email as PDF</button>
+    <button class="btn" data-edit-invoice="${esc(x.id)}">Edit invoice</button>
+    <button class="btn" data-email-invoice="${esc(x.id)}">Email PDF</button>
+    <button class="btn pri" data-print-invoice="${esc(x.id)}">Print PDF</button>
     ${generated?'':`<button class="btn" data-del="${esc(x.id)}">Delete</button>
     <button class="btn" data-dup="${esc(x.id)}">Duplicate</button>
     ${x.s!='paid'?`<button class="btn" data-r="${esc(x.id)}">Send reminder</button><button class="btn" data-p="${esc(x.id)}">Mark as paid</button>`:''}
-    <button class="btn pri" id="prt">Print or save PDF</button>`}
+    `}
     <button class="btn" id="vx">Close</button>
   </div>`;
   $('#vw').showModal();
@@ -630,6 +671,7 @@ function openInv(id,generated=false){
 function nextId(){const n=Math.max(1000,...S.inv.map(x=>+x.id.replace(/\D/g,'')||0))+1;return S.set.pre+n}
 
 const dlg=$('#dlg');
+let editingInvoiceId=null;
 function line(d='',q=1,p=''){
   const r=document.createElement('div'); r.className='li';
   r.innerHTML=`<input placeholder="Description" value="${esc(d)}" aria-label="Description"><input type="number" min="1" value="${q}" aria-label="Quantity"><input type="number" min="0" step="0.01" placeholder="Price" value="${p}" aria-label="Unit price"><button type="button" aria-label="Remove line">×</button>`;
@@ -654,18 +696,29 @@ function updateDraftPreview(){
     return {d:fields[0].value.trim(),q:+fields[1].value||0,p:+fields[2].value||0};
   });
   preview.innerHTML=invoicePaperMarkup({
-    id:nextId(),c:customer,i:$('#iss').value,d:$('#due').value,t:+$('#tax').value||0,items
+    id:editingInvoiceId||nextId(),c:customer,i:$('#iss').value,d:$('#due').value,t:+$('#tax').value||0,items
   },client&&client.e||'');
 }
-function newInv(client){
+function newInv(client, invoiceId=null){
+  const existing=invoiceId?S.inv.find(item=>item.id===invoiceId):null;
+  if(invoiceId&&!existing)return;
+  editingInvoiceId=existing?existing.id:null;
   $('#cls').innerHTML=S.cl.map(c=>`<option value="${esc(c.n)}">`).join('');
-  $('#items').innerHTML=''; line('',1,'');
-  $('#cl').value=client||''; $('#tax').value=S.set.tax;
-  $('#iss').value=day(0); $('#due').value=day(+S.set.terms||30);
+  $('#items').innerHTML='';
+  const items=existing?existing.items||[]:[];
+  if(items.length)items.forEach(item=>line(item.d,item.q,item.p));
+  else line('',1,'');
+  $('#cl').value=existing?existing.c:client||'';
+  $('#tax').value=existing?existing.t:S.set.tax;
+  $('#iss').value=existing?existing.i:day(0);
+  $('#due').value=existing?existing.d:day(+S.set.terms||30);
+  $('#invoice-editor-title').textContent=existing?'Edit invoice':'Create invoice';
+  $('#invoice-editor-description').textContent=existing?'Update the invoice details. Its invoice number and payment status will remain unchanged.':'Fill in the details. The total updates as you type.';
+  $('#save').textContent=existing?'Save changes':'Generate invoice';
   calc();
   if($('#vw').open)$('#vw').close();
   dlg.showModal();
-  (client?document.querySelector('.li input'):$('#cl')).focus();
+  (existing||client?document.querySelector('.li input'):$('#cl')).focus();
 }
 
 function doLogout(){
@@ -694,6 +747,17 @@ if (acSave) acSave.onclick = () => {
   S.me.tz=$('#ac-tz').value;
   save(); syncMe(); account(); toast('Profile updated');
 };
+const acPaymentSave=$('#ac-payment-save');
+if(acPaymentSave)acPaymentSave.onclick=()=>{
+  S.set.paymentMethods=$('#ac-payment-methods').value.trim();
+  S.set.bankName=$('#ac-bank-name').value.trim();
+  S.set.bankAccountName=$('#ac-bank-account-name').value.trim();
+  S.set.bankAccountNumber=$('#ac-bank-account-number').value.trim();
+  S.set.bankBranch=$('#ac-bank-branch').value.trim();
+  S.set.bankSwift=$('#ac-bank-swift').value.trim();
+  save();
+  toast('Invoice payment details saved');
+};
 
 document.addEventListener('click',e=>{
   const t=e.target;
@@ -705,6 +769,12 @@ document.addEventListener('click',e=>{
   const b=t.closest('button');
   if(b){
     const d=b.dataset;
+    if(d.editInvoice!==undefined){
+      const invoice=S.inv.find(item=>item.id===d.editInvoice);
+      if(!invoice)return;
+      newInv(invoice.c,invoice.id);
+      return;
+    }
     if(d.emailInvoice!==undefined){
       const invoice=S.inv.find(item=>item.id===d.emailInvoice);
       if(!invoice)return;
@@ -713,6 +783,21 @@ document.addEventListener('click',e=>{
       $('#invoice-recipient').value=client&&client.e||'';
       emailDialog.showModal();
       $('#invoice-recipient').focus();
+      return;
+    }
+    if(d.printInvoice!==undefined){
+      const invoice=S.inv.find(item=>item.id===d.printInvoice);
+      if(!invoice)return;
+      const printWindow=window.open('about:blank','_blank');
+      if(!printWindow){toast('Allow pop-ups to open the printable PDF.');return}
+      requestInvoicePdf(invoice).then(pdf=>{
+        const url=URL.createObjectURL(pdf);
+        printWindow.location.href=url;
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+      }).catch(error=>{
+        printWindow.close();
+        toast(error.message||'Unable to generate this invoice PDF.');
+      });
       return;
     }
     if(d.p){e.stopPropagation();markPaid(d.p);if($('#vw').open)openInv(d.p);return}
@@ -770,19 +855,104 @@ if (saveEl) saveEl.onclick = () => {
   const items=[...document.querySelectorAll('.li')].map(r=>{const i=r.querySelectorAll('input');return{d:i[0].value.trim(),q:+i[1].value||1,p:+i[2].value||0}}).filter(i=>i.p>0);
   if(!items.length){toast('Add at least one priced line item');return}
   if(!S.cl.some(x=>x.n==c))S.cl.push({n:c,e:''});
-  const t=+$('#tax').value||0, id=nextId();
-  S.inv.unshift({id,c,i:$('#iss').value||day(0),d:$('#due').value||day(30),a:Math.round(items.reduce((s,i)=>s+i.q*i.p,0)*(1+t/100)*100)/100,s:'pending',items,t});
+  const t=+$('#tax').value||0;
+  const id=editingInvoiceId||nextId();
+  const amount=Math.round(items.reduce((s,i)=>s+i.q*i.p,0)*(1+t/100)*100)/100;
+  const invoice=S.inv.find(item=>item.id===id);
+  if(editingInvoiceId&&!invoice){toast('This invoice is no longer available.');dlg.close();return}
+  if(invoice){
+    Object.assign(invoice,{c,i:$('#iss').value||day(0),d:$('#due').value||day(30),a:amount,items,t});
+  }else{
+    S.inv.unshift({id,c,i:$('#iss').value||day(0),d:$('#due').value||day(30),a:amount,s:'pending',items,t});
+  }
+  editingInvoiceId=null;
   save();
   dlg.close();
   render();
-  openInv(id,true);
-  toast(id+' generated');
+  openInv(id,!invoice);
+  toast(invoice?id+' updated':id+' generated');
 };
 
 const emailDialog=$('#emaildlg');
 const emailForm=$('#email-form');
 const emailCancel=$('#email-cancel');
 if(emailCancel)emailCancel.onclick=()=>emailDialog.close();
+async function requestInvoicePdf(invoice){
+  const response=await fetch('email_invoice.php',{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+    body:new URLSearchParams({
+      csrf_token:INVOICE_CSRF,
+      invoice:JSON.stringify(invoice),
+      business:JSON.stringify({name:S.set.name,mail:S.set.mail,note:S.set.note,cur:S.set.cur,paymentMethods:S.set.paymentMethods||'',bankName:S.set.bankName||'',bankAccountName:S.set.bankAccountName||'',bankAccountNumber:S.set.bankAccountNumber||'',bankBranch:S.set.bankBranch||'',bankSwift:S.set.bankSwift||''})
+    })
+  });
+  if(!response.ok){
+    const result=await response.json();
+    throw new Error(result.message||'Unable to generate this invoice PDF.');
+  }
+  const contentType=response.headers.get('Content-Type')||'';
+  if(!contentType.toLowerCase().includes('application/pdf')){
+    throw new Error('The invoice service returned an invalid PDF response.');
+  }
+  return response.blob();
+}
+function downloadBlob(blob,filename){
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;
+  link.download=filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+async function base64Blob(blob){
+  const bytes=new Uint8Array(await blob.arrayBuffer());
+  let binary='';
+  const chunkSize=0x8000;
+  for(let offset=0;offset<bytes.length;offset+=chunkSize){
+    binary+=String.fromCharCode(...bytes.subarray(offset,offset+chunkSize));
+  }
+  return btoa(binary).replace(/.{1,76}/g,'$&\r\n').trim();
+}
+function utf8Base64(value){
+  const bytes=new TextEncoder().encode(value);
+  let binary='';
+  for(let offset=0;offset<bytes.length;offset+=0x8000){
+    binary+=String.fromCharCode(...bytes.subarray(offset,offset+0x8000));
+  }
+  return btoa(binary);
+}
+async function makeInvoiceEmailDraft(invoice,recipient,pdf){
+  const boundary='----=_Invoice_'+Date.now().toString(16)+Math.random().toString(16).slice(2);
+  const subject='Invoice '+invoice.id+' from '+S.set.name;
+  const encodedSubject='=?UTF-8?B?'+utf8Base64(subject)+'?=';
+  const message='Hello,\r\n\r\nPlease find invoice '+invoice.id+' attached as a PDF.\r\n\r\nThank you,\r\n'+S.set.name;
+  const encodedMessage=utf8Base64(message).replace(/.{1,76}/g,'$&\r\n').trim();
+  const encodedPdf=await base64Blob(pdf);
+  const content=[
+    'To: '+recipient.replace(/[\r\n]/g,''),
+    'Subject: '+encodedSubject,
+    'MIME-Version: 1.0',
+    'Content-Type: multipart/mixed; boundary="'+boundary+'"',
+    '',
+    '--'+boundary,
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    encodedMessage,
+    '--'+boundary,
+    'Content-Type: application/pdf; name="invoice-'+invoice.id+'.pdf"',
+    'Content-Transfer-Encoding: base64',
+    'Content-Disposition: attachment; filename="invoice-'+invoice.id+'.pdf"',
+    '',
+    encodedPdf,
+    '--'+boundary+'--',
+    ''
+  ].join('\r\n');
+  return new Blob([content],{type:'message/rfc822'});
+}
 if(emailForm)emailForm.onsubmit=async e=>{
   e.preventDefault();
   const invoice=S.inv.find(item=>item.id===emailDialog.dataset.invoiceId);
@@ -790,27 +960,33 @@ if(emailForm)emailForm.onsubmit=async e=>{
   if(!invoice||!emailForm.reportValidity())return;
   const send=$('#email-send');
   send.disabled=true;
-  send.textContent='Sending…';
+  send.textContent='Preparing PDF…';
   try{
-    const response=await fetch('email_invoice.php',{
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-      body:new URLSearchParams({
-        csrf_token:INVOICE_CSRF,
-        recipient,
-        invoice:JSON.stringify(invoice),
-        business:JSON.stringify({name:S.set.name,mail:S.set.mail,note:S.set.note,cur:S.set.cur})
-      })
-    });
-    const result=await response.json();
-    if(!response.ok||!result.success)throw new Error(result.message||'Unable to email this invoice.');
+    const pdf=await requestInvoicePdf(invoice);
     emailDialog.close();
-    toast('Invoice emailed to '+recipient);
+    const filename='invoice-'+invoice.id+'.pdf';
+    const pdfFile=new File([pdf],filename,{type:'application/pdf'});
+    if(navigator.canShare&&navigator.share&&navigator.canShare({files:[pdfFile]})){
+      await navigator.share({
+        files:[pdfFile],
+        title:'Invoice '+invoice.id,
+        text:'To: '+recipient+'\nInvoice '+invoice.id+' from '+S.set.name
+      });
+      toast('Invoice shared as a PDF attachment.');
+    }else{
+      const draft=await makeInvoiceEmailDraft(invoice,recipient,pdf);
+      downloadBlob(draft,'invoice-'+invoice.id+'-email.eml');
+      toast('Open the downloaded email draft to send the attached PDF.');
+    }
   }catch(error){
-    toast(error.message||'Unable to email this invoice.');
+    if(error.name==='AbortError'){
+      toast('Email sharing was canceled.');
+    }else{
+      toast(error.message||'Unable to prepare the invoice email.');
+    }
   }finally{
     send.disabled=false;
-    send.textContent='Send invoice';
+    send.textContent='Email PDF';
   }
 };
 

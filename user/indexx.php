@@ -1,4 +1,8 @@
 <?php
+declare(strict_types=1);
+header('Location: overview.php');
+exit;
+
 /**
  * Ledgerly – signed-in user workspace
  *
@@ -7,8 +11,6 @@
  *
  * Quick preview: php -S localhost:8000 → http://localhost:8000/user.php
  */
-declare(strict_types=1);
-
 function e(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }

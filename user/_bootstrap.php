@@ -110,6 +110,8 @@ $default = [
         'name' => 'Ledgerly Studio', 'mail' => 'billing@ledgerly.app',
         'cur' => '$', 'tax' => 15, 'terms' => 30, 'pre' => 'INV-',
         'note' => 'Thank you for your business. Please pay by the due date.',
+        'paymentMethods' => '', 'bankName' => '', 'bankAccountName' => '',
+        'bankAccountNumber' => '', 'bankBranch' => '', 'bankSwift' => '',
     ],
 ];
 
