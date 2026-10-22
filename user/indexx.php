@@ -1,9 +1,137 @@
-<!DOCTYPE html>
+<?php
+/**
+ * Ledgerly – signed-in user workspace
+ *
+ * Seed data lives in PHP so it's easy to edit and easy to swap
+ * for real data from a database or session.
+ *
+ * Quick preview: php -S localhost:8000 → http://localhost:8000/user.php
+ */
+declare(strict_types=1);
+
+function e(string $s): string {
+    return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+function ini(string $name): string {
+    $parts = preg_split('/\s+/', trim($name)) ?: [];
+    $out = '';
+    foreach (array_slice($parts, 0, 2) as $p) {
+        if ($p !== '') $out .= mb_strtoupper(mb_substr($p, 0, 1));
+    }
+    return $out ?: '?';
+}
+function relDay(int $offset): string {
+    return date('Y-m-d', strtotime("{$offset} days"));
+}
+function relStamp(float $hoursAgo): string {
+    return date('c', time() - (int) round($hoursAgo * 3600));
+}
+
+$year = (int) date('Y');
+
+/* ---------- Nav labels, titles and icons ---------- */
+$icons = [
+    'overview' => '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+    'invoices' => '<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/>',
+    'clients'  => '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.5 3.2-5.5 6.5-5.5s5.9 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 010 6.8M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/>',
+    'payments' => '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/>',
+    'account'  => '<circle cx="12" cy="8" r="4"/><path d="M4 20c.8-4.2 4-6.5 8-6.5s7.2 2.3 8 6.5"/>',
+];
+
+$pages = [
+    'overview' => ['Overview',    "Welcome back. Here's your workspace."],
+    'invoices' => ['My invoices', 'Create, track and collect your invoices.'],
+    'clients'  => ['My clients',  'The people and businesses you bill.'],
+    'payments' => ['Payments',    'Payments recorded against your invoices.'],
+    'account'  => ['Account',     'Your profile, security and plan.'],
+];
+
+/* ---------- Seed data (used the first time, and by "Reset") ---------- */
+function inv(string $id, string $client, int $issued, int $due, int $amount, string $status): array {
+    return [
+        'id'    => $id,
+        'c'     => $client,
+        'i'     => relDay($issued),
+        'd'     => relDay($due),
+        'a'     => $amount,
+        's'     => $status,
+        'items' => [['d' => 'Professional services', 'q' => 1, 'p' => $amount]],
+        't'     => 0,
+    ];
+}
+
+$default = [
+    'me' => [
+        'n'            => 'Amara Moyo',
+        'e'            => 'amara@ledgerly.app',
+        'role'         => 'Administrator',
+        'phone'        => '+263 77 123 4567',
+        'tz'           => 'Africa/Harare',
+        'plan'         => 'Ledgerly Pro',
+        'cycle'        => 'Monthly',
+        'renew'        => relDay(12),
+        'payment'      => 'Visa •••• 4242',
+        'seats'        => 5,
+        'seatsUsed'    => 4,
+        'invoicesUsed' => 38,
+        'invoiceLimit' => 100,
+        'clientsUsed'  => 5,
+        'clientLimit'  => 50,
+        'storageUsed'  => 1.8,
+        'storageLimit' => 10,
+        'pwChanged'    => relDay(-42),
+    ],
+    'inv' => [
+        inv('INV-1048', 'Northwind Logistics', -38, -8,  8450, 'overdue'),
+        inv('INV-1049', 'Kuda Studios',        -21,  9,  2380, 'pending'),
+        inv('INV-1050', 'Baobab Capital',      -18, 12, 15200, 'pending'),
+        inv('INV-1051', 'Meridian Health',     -30, -1,  4975, 'overdue'),
+        inv('INV-1052', 'Northwind Logistics', -14, 16,  6120, 'paid'),
+        inv('INV-1053', 'Zambezi Foods',       -12, 18,  3340, 'paid'),
+        inv('INV-1054', 'Baobab Capital',       -9, 21,  9800, 'paid'),
+        inv('INV-1055', 'Kuda Studios',         -4, 26,  1560, 'pending'),
+    ],
+    'cl' => [
+        ['n' => 'Northwind Logistics', 'e' => 'accounts@northwind.co'],
+        ['n' => 'Kuda Studios',        'e' => 'hello@kuda.studio'],
+        ['n' => 'Baobab Capital',      'e' => 'finance@baobab.com'],
+        ['n' => 'Meridian Health',     'e' => 'ap@meridian.health'],
+        ['n' => 'Zambezi Foods',       'e' => 'orders@zambezi.foods'],
+    ],
+    'pay' => [
+        ['inv' => 'INV-1052', 'c' => 'Northwind Logistics', 'd' => relDay(-6), 'm' => 'Bank transfer', 'a' => 6120],
+        ['inv' => 'INV-1053', 'c' => 'Zambezi Foods',       'd' => relDay(-5), 'm' => 'Card',          'a' => 3340],
+        ['inv' => 'INV-1054', 'c' => 'Baobab Capital',      'd' => relDay(-2), 'm' => 'Bank transfer', 'a' => 9800],
+    ],
+    'audit' => [
+        ['t' => relStamp(0.3),  'ev' => 'login',  'ip' => '102.65.14.8',   'loc' => 'Harare, ZW'],
+        ['t' => relStamp(14.7), 'ev' => 'login',  'ip' => '102.65.14.8',   'loc' => 'Harare, ZW'],
+        ['t' => relStamp(38.2), 'ev' => 'failed', 'ip' => '45.221.10.77',  'loc' => 'Lagos, NG'],
+        ['t' => relStamp(46.9), 'ev' => 'login',  'ip' => '102.65.14.8',   'loc' => 'Harare, ZW'],
+        ['t' => relStamp(72.4), 'ev' => 'login',  'ip' => '102.65.14.8',   'loc' => 'Harare, ZW'],
+    ],
+    'set' => [
+        'name'  => 'Ledgerly Studio',
+        'mail'  => 'billing@ledgerly.app',
+        'cur'   => '$',
+        'tax'   => 15,
+        'terms' => 30,
+        'pre'   => 'INV-',
+        'note'  => 'Thank you for your business. Please pay by the due date.',
+    ],
+];
+
+$me = $default['me'];
+$jsonFlags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+$defaultJson = json_encode($default, $jsonFlags) ?: '{}';
+$pagesJson   = json_encode($pages,   $jsonFlags) ?: '{}';
+$iconsJson   = json_encode($icons,   $jsonFlags) ?: '{}';
+?><!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Ledgerly – My workspace</title>
+<title><?= e('Ledgerly – My workspace') ?></title>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--accent:#0E5A47;--soft:#E6F0ED;--bg:#F6F7F7;--surface:#fff;--ink:#111614;--muted:#66716D;--line:#E3E7E6;color-scheme:light}
@@ -224,8 +352,8 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
 <div class="mtop">
   <div class="brand"><div class="mark">L</div>Ledgerly</div>
   <div class="muser">
-    <b class="mname" id="mname">Amara Moyo</b>
-    <div class="av" id="mav">AM</div>
+    <b class="mname" id="mname"><?= e($me['n']) ?></b>
+    <div class="av" id="mav"><?= e(ini($me['n'])) ?></div>
     <button class="lout" id="logout2" title="Log out" aria-label="Log out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg></button>
   </div>
 </div>
@@ -234,8 +362,8 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
     <div class="brand"><div class="mark">L</div>Ledgerly</div>
     <nav class="nav" id="nav" aria-label="Main"></nav>
     <div class="me">
-      <div class="av" id="me-av">AM</div>
-      <div class="who"><b id="me-name">Amara Moyo</b><small id="me-role">Administrator</small></div>
+      <div class="av" id="me-av"><?= e(ini($me['n'])) ?></div>
+      <div class="who"><b id="me-name"><?= e($me['n']) ?></b><small id="me-role"><?= e($me['role']) ?></small></div>
       <button class="lout" id="logout" title="Log out" aria-label="Log out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg></button>
     </div>
   </aside>
@@ -253,9 +381,9 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
     <div id="v-overview" hidden>
       <section class="card hero-card">
         <div class="hero-l">
-          <div class="av big" id="ov-av">AM</div>
+          <div class="av big" id="ov-av"><?= e(ini($me['n'])) ?></div>
           <div style="min-width:0">
-            <h2 id="ov-greet">Good morning, Amara</h2>
+            <h2 id="ov-greet">Welcome, <?= e(explode(' ', $me['n'])[0]) ?></h2>
             <p>Here's what's happening in your workspace.</p>
             <div class="hero-meta" id="ov-meta"></div>
           </div>
@@ -395,42 +523,12 @@ const daysUntil=d=>Math.max(0,Math.round((new Date(d+'T00:00')-new Date(new Date
 const ini=n=>n.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
 const greet=()=>{const h=new Date().getHours();return h<12?'Good morning':h<18?'Good afternoon':'Good evening'};
 
-const IC={
-  overview:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
-  invoices:'<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/>',
-  clients:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.5 3.2-5.5 6.5-5.5s5.9 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 010 6.8M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/>',
-  payments:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/>',
-  account:'<circle cx="12" cy="8" r="4"/><path d="M4 20c.8-4.2 4-6.5 8-6.5s7.2 2.3 8 6.5"/>'
-};
-const PAGES={
-  overview:['Overview',"Welcome back. Here's your workspace."],
-  invoices:['My invoices','Create, track and collect your invoices.'],
-  clients:['My clients','The people and businesses you bill.'],
-  payments:['Payments','Payments recorded against your invoices.'],
-  account:['Account','Your profile, security and plan.']
-};
+/* Icons, pages and seed data are provided by PHP */
+const IC    = <?= $iconsJson ?>;
+const PAGES = <?= $pagesJson ?>;
+const __INITIAL__ = <?= $defaultJson ?>;
+const DEF   = () => JSON.parse(JSON.stringify(__INITIAL__));
 const svg=n=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${IC[n]}</svg>`;
-const mk=(id,c,i,d,a,s)=>({id,c,i:day(i),d:day(d),a,s,items:[{d:'Professional services',q:1,p:a}],t:0});
-
-const DEF=()=>({
-  me:{n:'Amara Moyo',e:'amara@ledgerly.app',role:'Administrator',
-      phone:'+263 77 123 4567',tz:'Africa/Harare',
-      plan:'Ledgerly Pro',cycle:'Monthly',renew:day(12),
-      payment:'Visa •••• 4242',seats:5,seatsUsed:4,
-      invoicesUsed:38,invoiceLimit:100,clientsUsed:5,clientLimit:50,
-      storageUsed:1.8,storageLimit:10,pwChanged:day(-42)},
-  inv:[mk('INV-1048','Northwind Logistics',-38,-8,8450,'overdue'),mk('INV-1049','Kuda Studios',-21,9,2380,'pending'),mk('INV-1050','Baobab Capital',-18,12,15200,'pending'),mk('INV-1051','Meridian Health',-30,-1,4975,'overdue'),mk('INV-1052','Northwind Logistics',-14,16,6120,'paid'),mk('INV-1053','Zambezi Foods',-12,18,3340,'paid'),mk('INV-1054','Baobab Capital',-9,21,9800,'paid'),mk('INV-1055','Kuda Studios',-4,26,1560,'pending')],
-  cl:[{n:'Northwind Logistics',e:'accounts@northwind.co'},{n:'Kuda Studios',e:'hello@kuda.studio'},{n:'Baobab Capital',e:'finance@baobab.com'},{n:'Meridian Health',e:'ap@meridian.health'},{n:'Zambezi Foods',e:'orders@zambezi.foods'}],
-  pay:[{inv:'INV-1052',c:'Northwind Logistics',d:day(-6),m:'Bank transfer',a:6120},{inv:'INV-1053',c:'Zambezi Foods',d:day(-5),m:'Card',a:3340},{inv:'INV-1054',c:'Baobab Capital',d:day(-2),m:'Bank transfer',a:9800}],
-  audit:[
-    {t:stamp(0.3),ev:'login',ip:'102.65.14.8',loc:'Harare, ZW'},
-    {t:stamp(14.7),ev:'login',ip:'102.65.14.8',loc:'Harare, ZW'},
-    {t:stamp(38.2),ev:'failed',ip:'45.221.10.77',loc:'Lagos, NG'},
-    {t:stamp(46.9),ev:'login',ip:'102.65.14.8',loc:'Harare, ZW'},
-    {t:stamp(72.4),ev:'login',ip:'102.65.14.8',loc:'Harare, ZW'}
-  ],
-  set:{name:'Ledgerly Studio',mail:'billing@ledgerly.app',cur:'$',tax:15,terms:30,pre:'INV-',note:'Thank you for your business. Please pay by the due date.'}
-});
 
 let S;
 try{
@@ -449,7 +547,7 @@ const openCount=()=>S.inv.filter(x=>x.s!='paid').length;
 const paidCount=()=>S.inv.filter(x=>x.s=='paid').length;
 
 /* Nav */
-const navHTML=['overview','invoices','clients','payments','account'].map(k=>`<a href="#${k}" data-p="${k}">${svg(k)}<span>${PAGES[k][0]}</span></a>`).join('');
+const navHTML=Object.keys(PAGES).map(k=>`<a href="#${k}" data-p="${k}">${svg(k)}<span>${PAGES[k][0]}</span></a>`).join('');
 $('#nav').innerHTML=navHTML; $('#bnav').innerHTML=navHTML;
 
 /* Signed-in identity */

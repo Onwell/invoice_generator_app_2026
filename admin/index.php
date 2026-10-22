@@ -1,9 +1,152 @@
-<!DOCTYPE html>
+<?php
+/**
+ * Ledgerly – admin console (single-file PHP port of admin.html)
+ *
+ * Seed data lives in $default so you can swap it for real data later.
+ * Preview: php -S localhost:8000  →  http://localhost:8000/admin.php
+ */
+declare(strict_types=1);
+
+function e(string $s): string {
+    return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+function ini(string $name): string {
+    $parts = preg_split('/\s+/', trim($name)) ?: [];
+    $out = '';
+    foreach (array_slice($parts, 0, 2) as $p) {
+        if ($p !== '') $out .= mb_strtoupper(mb_substr($p, 0, 1));
+    }
+    return $out ?: '?';
+}
+function relDay(int $o): string   { return date('Y-m-d', strtotime("{$o} days")); }
+function relStamp(float $h): string { return date('c', time() - (int) round($h * 3600)); }
+
+$year = (int) date('Y');
+
+/* ---------- Nav pages ---------- */
+$pages = [
+    'dashboard' => ['Dashboard',  'Here is where your billing stands today.'],
+    'invoices'  => ['Invoices',   'Create, track and collect every invoice.'],
+    'clients'   => ['Clients',    'Everyone you bill, with what they owe.'],
+    'users'     => ['Users',      'Every registered account and its subscription.'],
+    'payments'  => ['Payments',   'Money received and how it arrived.'],
+    'audit'     => ['Audit logs', 'Every sign-in attempt across all accounts.'],
+    'backups'   => ['Backups',    'Create, download and restore your data backups.'],
+    'profile'   => ['Profile',    'Your account, plan and billing.'],
+    'settings'  => ['Settings',   'Defaults used for every new invoice.'],
+];
+$initialPage = defined('ADMIN_INITIAL_PAGE') ? ADMIN_INITIAL_PAGE : 'dashboard';
+
+$icons = [
+    'dashboard' => '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+    'invoices'  => '<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/>',
+    'clients'   => '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.5 3.2-5.5 6.5-5.5s5.9 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 010 6.8M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/>',
+    'users'     => '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.5 3.2-5.5 6.5-5.5s5.9 2 6.5 5.5"/><circle cx="18" cy="7" r="2.5"/><path d="M16.5 13.2c2 .3 3.4 1.6 4 3.8"/>',
+    'payments'  => '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/>',
+    'audit'     => '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+    'backups'   => '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
+    'settings'  => '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
+];
+
+/* ---------- Seed data ---------- */
+function mk_inv(string $id, string $c, int $i, int $d, int $a, string $s): array {
+    return [
+        'id' => $id, 'c' => $c,
+        'i'  => relDay($i), 'd' => relDay($d),
+        'a'  => $a, 's' => $s,
+        'items' => [['d' => 'Professional services', 'q' => 1, 'p' => $a]],
+        't'  => 0,
+    ];
+}
+
+$default = [
+    'inv' => [
+        mk_inv('INV-1048','Northwind Logistics',-38,-8, 8450,'overdue'),
+        mk_inv('INV-1049','Kuda Studios',       -21, 9, 2380,'pending'),
+        mk_inv('INV-1050','Baobab Capital',     -18,12,15200,'pending'),
+        mk_inv('INV-1051','Meridian Health',    -30,-1, 4975,'overdue'),
+        mk_inv('INV-1052','Northwind Logistics',-14,16, 6120,'paid'),
+        mk_inv('INV-1053','Zambezi Foods',      -12,18, 3340,'paid'),
+        mk_inv('INV-1054','Baobab Capital',      -9,21, 9800,'paid'),
+        mk_inv('INV-1055','Kuda Studios',        -4,26, 1560,'pending'),
+    ],
+    'cl' => [
+        ['n'=>'Northwind Logistics','e'=>'accounts@northwind.co'],
+        ['n'=>'Kuda Studios','e'=>'hello@kuda.studio'],
+        ['n'=>'Baobab Capital','e'=>'finance@baobab.com'],
+        ['n'=>'Meridian Health','e'=>'ap@meridian.health'],
+        ['n'=>'Zambezi Foods','e'=>'orders@zambezi.foods'],
+    ],
+    'pay' => [
+        ['inv'=>'INV-1052','c'=>'Northwind Logistics','d'=>relDay(-6),'m'=>'Bank transfer','a'=>6120],
+        ['inv'=>'INV-1053','c'=>'Zambezi Foods','d'=>relDay(-5),'m'=>'Card','a'=>3340],
+        ['inv'=>'INV-1054','c'=>'Baobab Capital','d'=>relDay(-2),'m'=>'Bank transfer','a'=>9800],
+    ],
+    'users' => [
+        ['n'=>'Amara Moyo','e'=>'amara@ledgerly.app','role'=>'Administrator','plan'=>'subscribed','since'=>relDay(-320),'suspended'=>false],
+        ['n'=>'Tendai Ncube','e'=>'tendai@ledgerly.app','role'=>'Accountant','plan'=>'subscribed','since'=>relDay(-210),'suspended'=>false],
+        ['n'=>'Grace Phiri','e'=>'grace@ledgerly.app','role'=>'Accountant','plan'=>'subscribed','since'=>relDay(-12),'suspended'=>false],
+        ['n'=>'Sam Okoro','e'=>'sam@ledgerly.app','role'=>'Administrator','plan'=>'subscribed','since'=>relDay(-160),'suspended'=>false],
+        ['n'=>'Nia Banda','e'=>'nia@ledgerly.app','role'=>'Accountant','plan'=>'subscribed','since'=>relDay(-64),'suspended'=>false],
+        ['n'=>'Kofi Mensah','e'=>'kofi@ledgerly.app','role'=>'Billing clerk','plan'=>'non-subscribed','since'=>relDay(-95),'suspended'=>false],
+        ['n'=>'Lerato Dube','e'=>'lerato@ledgerly.app','role'=>'Viewer','plan'=>'non-subscribed','since'=>relDay(-40),'suspended'=>false],
+        ['n'=>'Thabo Sithole','e'=>'thabo@ledgerly.app','role'=>'Viewer','plan'=>'non-subscribed','since'=>relDay(-7),'suspended'=>true],
+    ],
+    'me' => [
+        'e'=>'amara@ledgerly.app','phone'=>'+263 77 123 4567','tz'=>'Africa/Harare',
+        'plan'=>'Ledgerly Pro','price'=>49,'cycle'=>'Monthly','renew'=>relDay(12),
+        'payment'=>'Visa •••• 4242','seats'=>5,'seatsUsed'=>4,
+        'invoicesUsed'=>38,'invoiceLimit'=>100,'clientsUsed'=>5,'clientLimit'=>50,
+        'storageUsed'=>1.8,'storageLimit'=>10,'pwChanged'=>relDay(-42),
+    ],
+    'backups' => [
+        ['id'=>'BK-0006','name'=>'Nightly backup','type'=>'auto','created'=>relStamp(6),'size'=>'4.2 MB','status'=>'complete'],
+        ['id'=>'BK-0005','name'=>'Nightly backup','type'=>'auto','created'=>relStamp(30),'size'=>'4.1 MB','status'=>'complete'],
+        ['id'=>'BK-0004','name'=>'Before settings change','type'=>'manual','created'=>relStamp(52),'size'=>'4.0 MB','status'=>'complete'],
+        ['id'=>'BK-0003','name'=>'Nightly backup','type'=>'auto','created'=>relStamp(54),'size'=>'4.0 MB','status'=>'complete'],
+        ['id'=>'BK-0002','name'=>'Nightly backup','type'=>'auto','created'=>relStamp(78),'size'=>'3.9 MB','status'=>'failed'],
+        ['id'=>'BK-0001','name'=>'Monthly archive','type'=>'manual','created'=>relStamp(120),'size'=>'3.8 MB','status'=>'complete'],
+    ],
+    'bk' => ['auto'=>true,'freq'=>'Daily','time'=>'02:00','retain'=>30,'dest'=>'Local + S3'],
+    'audit' => [
+        ['t'=>relStamp(0.3),'u'=>'Amara Moyo','e'=>'amara@ledgerly.app','ev'=>'login','ip'=>'102.65.14.8','loc'=>'Harare, ZW'],
+        ['t'=>relStamp(0.9),'u'=>'Unknown account','e'=>'admin@ledgerly.co','ev'=>'failed','ip'=>'45.221.10.77','loc'=>'Lagos, NG'],
+        ['t'=>relStamp(2.4),'u'=>'Tendai Ncube','e'=>'tendai@ledgerly.app','ev'=>'login','ip'=>'41.79.62.14','loc'=>'Bulawayo, ZW'],
+        ['t'=>relStamp(3.1),'u'=>'Grace Phiri','e'=>'grace@ledgerly.app','ev'=>'login','ip'=>'196.21.44.9','loc'=>'Lusaka, ZM'],
+        ['t'=>relStamp(5.2),'u'=>'Kofi Mensah','e'=>'kofi@ledgerly.app','ev'=>'failed','ip'=>'154.160.18.3','loc'=>'Accra, GH'],
+        ['t'=>relStamp(5.5),'u'=>'Kofi Mensah','e'=>'kofi@ledgerly.app','ev'=>'login','ip'=>'154.160.18.3','loc'=>'Accra, GH'],
+        ['t'=>relStamp(8.4),'u'=>'Lerato Dube','e'=>'lerato@ledgerly.app','ev'=>'login','ip'=>'105.184.22.61','loc'=>'Gaborone, BW'],
+        ['t'=>relStamp(12.2),'u'=>'Unknown account','e'=>'test@ledgerly.app','ev'=>'failed','ip'=>'89.207.132.6','loc'=>'Amsterdam, NL'],
+        ['t'=>relStamp(14.7),'u'=>'Amara Moyo','e'=>'amara@ledgerly.app','ev'=>'login','ip'=>'102.65.14.8','loc'=>'Harare, ZW'],
+        ['t'=>relStamp(20.1),'u'=>'Tendai Ncube','e'=>'tendai@ledgerly.app','ev'=>'failed','ip'=>'41.79.62.14','loc'=>'Bulawayo, ZW'],
+        ['t'=>relStamp(22.5),'u'=>'Tendai Ncube','e'=>'tendai@ledgerly.app','ev'=>'login','ip'=>'41.79.62.14','loc'=>'Bulawayo, ZW'],
+        ['t'=>relStamp(26.3),'u'=>'Sam Okoro','e'=>'sam@ledgerly.app','ev'=>'login','ip'=>'197.210.53.20','loc'=>'Abuja, NG'],
+        ['t'=>relStamp(30.8),'u'=>'Unknown account','e'=>'root@ledgerly.app','ev'=>'failed','ip'=>'185.220.101.44','loc'=>'Frankfurt, DE'],
+        ['t'=>relStamp(34.2),'u'=>'Grace Phiri','e'=>'grace@ledgerly.app','ev'=>'login','ip'=>'196.21.44.9','loc'=>'Lusaka, ZM'],
+        ['t'=>relStamp(40.5),'u'=>'Nia Banda','e'=>'nia@ledgerly.app','ev'=>'login','ip'=>'41.60.190.12','loc'=>'Lilongwe, MW'],
+        ['t'=>relStamp(46.9),'u'=>'Amara Moyo','e'=>'amara@ledgerly.app','ev'=>'login','ip'=>'102.65.14.8','loc'=>'Harare, ZW'],
+        ['t'=>relStamp(52.4),'u'=>'Unknown account','e'=>'info@ledgerly.app','ev'=>'failed','ip'=>'103.94.16.5','loc'=>'Mumbai, IN'],
+        ['t'=>relStamp(58.7),'u'=>'Thabo Sithole','e'=>'thabo@ledgerly.app','ev'=>'login','ip'=>'41.13.88.4','loc'=>'Johannesburg, ZA'],
+    ],
+    'set' => [
+        'name'=>'Ledgerly Studio','mail'=>'billing@ledgerly.app','cur'=>'$',
+        'tax'=>15,'terms'=>30,'pre'=>'INV-',
+        'note'=>'Thank you for your business. Please pay by the due date.',
+    ],
+];
+
+$me = $default['users'][0]; /* display name for server-rendered sidebar */
+
+$jsonFlags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+$defaultJson = json_encode($default, $jsonFlags) ?: '{}';
+$pagesJson   = json_encode($pages,   $jsonFlags) ?: '{}';
+$iconsJson   = json_encode($icons,   $jsonFlags) ?: '{}';
+?><!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Ledgerly – Invoice admin</title>
+<title><?= e('Ledgerly – Invoice admin') ?></title>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--accent:#0E5A47;--soft:#E6F0ED;--bg:#F6F7F7;--surface:#fff;--ink:#111614;--muted:#66716D;--line:#E3E7E6;color-scheme:light}
@@ -120,7 +263,6 @@ tbody tr.go{cursor:pointer}tbody tr.go:hover{background:var(--bg)}
 .set .f{margin-top:16px}
 .set .sec+.sec{margin-top:16px}
 
-/* Profile */
 .pf-hero{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:22px;margin-bottom:16px}
 .prof-id{display:flex;gap:14px;align-items:center;min-width:0}
 .av.big{width:58px;height:58px;font-size:19px;background:var(--soft);color:var(--accent);font-weight:700}
@@ -165,7 +307,6 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
 .bnav{display:none}
 .mtop{display:none}
 
-/* Signed-out overlay */
 .so{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;z-index:200;padding:24px}
 .so-card{padding:36px 32px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
 .so-mark{background:var(--accent);color:#fff;width:44px;height:44px;font-size:19px;border-radius:12px;margin-bottom:6px}
@@ -232,8 +373,8 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
 <div class="mtop">
   <div class="brand"><div class="mark">L</div>Ledgerly</div>
   <div class="muser" data-goto="profile" role="link" tabindex="0" aria-label="Open your profile">
-    <b class="mname" id="mname">Amara Moyo</b>
-    <div class="av" id="mav" aria-label="Amara Moyo">AM</div>
+    <b class="mname" id="mname"><?= e($me['n']) ?></b>
+    <div class="av" id="mav" aria-label="<?= e($me['n']) ?>"><?= e(ini($me['n'])) ?></div>
     <button class="lout" id="logout2" title="Log out" aria-label="Log out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg></button>
   </div>
 </div>
@@ -242,8 +383,8 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
     <div class="brand"><div class="mark">L</div>Ledgerly</div>
     <nav class="nav" id="nav" aria-label="Main"></nav>
     <div class="me" data-goto="profile" role="link" tabindex="0" aria-label="Open your profile">
-      <div class="av" id="me-av">AM</div>
-      <div class="who"><b id="me-name">Amara Moyo</b><small id="me-role">Administrator</small></div>
+      <div class="av" id="me-av"><?= e(ini($me['n'])) ?></div>
+      <div class="who"><b id="me-name"><?= e($me['n']) ?></b><small id="me-role"><?= e($me['role']) ?></small></div>
       <button class="lout" id="logout" title="Log out" aria-label="Log out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg></button>
     </div>
   </aside>
@@ -257,161 +398,14 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
         <div class="pop" id="pop" hidden></div>
       </div>
     </header>
-    <div id="v-dashboard" hidden>
-      <section class="kpis" id="kpis"></section>
-      <div class="head" style="padding:0 0 12px"><h2>Accounts</h2><a href="#users">Manage users</a></div>
-      <section class="kpis u3" id="kpis2"></section>
-      <section class="grid">
-        <div class="card"><div class="head"><h2>Revenue collected</h2><span>Last 7 months</span></div><div class="chart" id="chart"></div></div>
-        <div class="card"><div class="head"><h2>Top clients</h2><a href="#clients">View all</a></div><ul class="list" id="top"></ul></div>
-      </section>
-      <section class="card"><div class="head" style="padding-bottom:14px"><h2>Recent invoices</h2><a href="#invoices">View all</a></div><div class="wrap"><table><tbody id="recent"></tbody></table></div></section>
-    </div>
-    <div id="v-invoices" hidden>
-      <section class="card">
-        <div class="tabs" id="tabs"></div>
-        <div class="bar2"><span class="sub" id="cnt"></span><div style="display:flex;gap:8px"><button class="btn sm" id="csv">Export CSV</button></div></div>
-        <div class="wrap"><table>
-          <thead><tr><th data-s="id">Invoice</th><th data-s="c">Client</th><th data-s="i">Issued</th><th data-s="d">Due</th><th data-s="s">Status</th><th class="r" data-s="a">Amount</th><th></th></tr></thead>
-          <tbody id="rows"></tbody></table></div>
-        <div class="empty" id="empty" hidden>No invoices match. Try another search or filter.</div>
-      </section>
-    </div>
-    <div id="v-clients" hidden>
-      <div style="margin-bottom:16px"><button class="btn" id="addc">Add client</button></div>
-      <div class="cgrid" id="cg"></div>
-    </div>
-    <div id="v-users" hidden>
-      <section class="card">
-        <div class="tabs" id="utabs"></div>
-        <div class="bar2"><span class="sub" id="ucnt"></span><span class="sub">Suspend or reactivate an account's login below</span></div>
-        <div style="padding:16px 22px 22px"><div class="cgrid" id="ug"></div></div>
-        <div class="empty" id="uempty" hidden>No users match. Try another search or filter.</div>
-      </section>
-    </div>
-    <div id="v-payments" hidden>
-      <section class="kpis" id="pk" style="grid-template-columns:repeat(3,1fr)"></section>
-      <section class="card">
-        <div class="head" style="padding-bottom:14px"><h2>Payment history</h2><button class="btn sm pri" id="recpay">Record payment</button></div>
-        <div class="wrap"><table><thead><tr><th>Received</th><th>Invoice</th><th>Client</th><th>Method</th><th class="r">Amount</th></tr></thead><tbody id="pr"></tbody></table></div>
-        <div class="empty" id="pe" hidden>No payments recorded yet.</div>
-      </section>
-    </div>
-    <div id="v-audit" hidden>
-      <section class="card">
-        <div class="tabs" id="atabs"></div>
-        <div class="bar2"><span class="sub" id="acnt"></span></div>
-        <div class="wrap"><table>
-          <thead><tr><th>Time</th><th>Account</th><th>Event</th><th>IP address</th><th>Location</th></tr></thead>
-          <tbody id="arows"></tbody></table></div>
-        <div class="empty" id="aempty" hidden>No log entries match. Try another search or filter.</div>
-      </section>
-    </div>
-    <div id="v-backups" hidden>
-      <section class="kpis" id="bk-kpis" style="grid-template-columns:repeat(3,1fr)"></section>
-      <section class="card" style="margin-bottom:16px">
-        <div class="head" style="padding-bottom:14px">
-          <h2>Backup history</h2>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn sm" id="bk-autobtn">Auto-backup: On</button>
-            <button class="btn sm pri" id="bk-create">Create backup now</button>
-          </div>
-        </div>
-        <div class="wrap"><table>
-          <thead><tr><th>Backup</th><th>Type</th><th>Created</th><th>Size</th><th>Status</th><th class="r">Actions</th></tr></thead>
-          <tbody id="bk-rows"></tbody></table></div>
-        <div class="empty" id="bk-empty" hidden>No backups yet. Create your first one.</div>
-      </section>
-      <section class="grid">
-        <div class="card">
-          <div class="head"><h2>Backup settings</h2></div>
-          <div class="pf-rows" id="bk-settings"></div>
-        </div>
-        <div class="card">
-          <div class="head"><h2>What gets backed up</h2></div>
-          <ul class="list" id="bk-included"></ul>
-        </div>
-      </section>
-    </div>
-    <div id="v-profile" hidden>
-      <section class="card pf-hero">
-        <div class="prof-id">
-          <div class="av big" id="pf-av">AM</div>
-          <div style="min-width:0">
-            <h2 id="pf-name">Amara Moyo</h2>
-            <p class="sub" id="pf-mail">amara@ledgerly.app</p>
-            <div class="pf-meta" id="pf-meta"></div>
-          </div>
-        </div>
-        <div class="foot" style="margin:0">
-          <button class="btn" id="pf-billing">Billing history</button>
-          <button class="btn pri" id="pf-manage">Manage plan</button>
-        </div>
-      </section>
-      <section class="kpis" id="pf-kpis"></section>
-      <section class="grid">
-        <div class="card">
-          <div class="head"><h2>Plan &amp; billing</h2><a href="#" id="pf-change">Change plan</a></div>
-          <div class="pf-rows" id="pf-plan"></div>
-        </div>
-        <div class="card">
-          <div class="head"><h2>Usage this cycle</h2><span id="pf-cycle"></span></div>
-          <div class="pf-usage" id="pf-usage"></div>
-        </div>
-      </section>
-      <section class="grid">
-        <div class="card">
-          <div class="head"><h2>Account details</h2></div>
-          <div class="m" style="padding:14px 22px 22px">
-            <div class="f">
-              <label>Full name<input id="pf-e-name"></label>
-              <label>Email<input id="pf-e-mail" type="email"></label>
-              <label>Phone<input id="pf-e-phone"></label>
-              <label>Timezone
-                <select id="pf-e-tz">
-                  <option value="Africa/Harare">Africa/Harare (CAT)</option>
-                  <option value="Africa/Johannesburg">Africa/Johannesburg (SAST)</option>
-                  <option value="Africa/Lagos">Africa/Lagos (WAT)</option>
-                  <option value="Europe/London">Europe/London (GMT/BST)</option>
-                  <option value="America/New_York">America/New York (ET)</option>
-                  <option value="UTC">UTC</option>
-                </select>
-              </label>
-            </div>
-            <div class="foot" style="margin-top:0;justify-content:flex-start"><button class="btn pri" id="pf-save">Save changes</button></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="head"><h2>Security</h2></div>
-          <ul class="list" id="pf-sec"></ul>
-        </div>
-      </section>
-      <section class="card" style="margin-bottom:16px">
-        <div class="head" style="padding-bottom:14px"><h2>Billing history</h2><span id="pf-card">Visa •••• 4242</span></div>
-        <div class="wrap"><table>
-          <thead><tr><th>Date</th><th>Invoice</th><th>Description</th><th>Status</th><th class="r">Amount</th><th></th></tr></thead>
-          <tbody id="pf-bills"></tbody></table></div>
-      </section>
-      <section class="card">
-        <div class="head" style="padding-bottom:14px"><h2>Recent sign-in activity</h2><a href="#audit">All audit logs</a></div>
-        <div class="wrap"><table>
-          <thead><tr><th>Time</th><th>Event</th><th>IP address</th><th>Location</th></tr></thead>
-          <tbody id="pf-logins"></tbody></table></div>
-      </section>
-    </div>
-    <div id="v-settings" hidden>
-      <div class="set">
-        <div class="card sec"><h2>Business profile</h2>
-          <div class="f"><label>Business name<input id="s-name"></label><label>Billing email<input id="s-mail" type="email"></label></div></div>
-        <div class="card sec"><h2>Invoice defaults</h2>
-          <div class="f"><label>Currency<select id="s-cur"><option value="$">USD ($)</option><option value="€">EUR (€)</option><option value="£">GBP (£)</option><option value="R">ZAR (R)</option></select></label>
-          <label>Default tax (%)<input id="s-tax" type="number" min="0"></label>
-          <label>Payment terms (days)<input id="s-terms" type="number" min="0"></label>
-          <label>Invoice prefix<input id="s-pre"></label></div>
-          <label>Footer note<textarea id="s-note" rows="2"></textarea></label></div>
-        <div class="foot" style="justify-content:space-between"><button class="btn" id="reset">Reset demo data</button><button class="btn pri" id="ssave">Save settings</button></div>
-      </div>
-    </div>
+    <?php
+    if (!defined('ADMIN_MENU_INCLUDE')) {
+        define('ADMIN_MENU_INCLUDE', true);
+    }
+    foreach (['dashboard', 'invoices', 'clients', 'users', 'payments', 'audit', 'backups', 'profile', 'settings'] as $menu) {
+        require __DIR__ . '/' . $menu . '.php';
+    }
+    ?>
   </main>
 </div>
 <nav class="bnav" id="bnav" aria-label="Main"></nav>
@@ -442,13 +436,19 @@ input,select,textarea{padding:10px 12px;border:1px solid var(--line);border-radi
     <div class="mark so-mark">L</div>
     <h2>You've been signed out</h2>
     <p>Your session has ended securely. Sign back in to keep managing invoices.</p>
-    <button class="btn pri" id="back">Sign back in as Amara Moyo</button>
+    <button class="btn pri" id="back">Sign back in as <?= e($me['n']) ?></button>
   </div>
 </div>
 
 <div class="toast" id="toast" role="status"></div>
 
 <script>
+/* Seed data, page titles and icons come from PHP */
+const IC    = <?= $iconsJson ?>;
+const PAGES = <?= $pagesJson ?>;
+const __INITIAL__ = <?= $defaultJson ?>;
+const DEF   = () => JSON.parse(JSON.stringify(__INITIAL__));
+
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const day=o=>{const d=new Date();d.setDate(d.getDate()+o);return d.toISOString().slice(0,10)};
@@ -457,68 +457,8 @@ const stamp=h=>new Date(Date.now()-h*3600000).toISOString();
 const when=t=>new Date(t).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const show=d=>new Date(d+'T00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
 const ini=n=>n.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-const IC={dashboard:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
-invoices:'<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/>',
-clients:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.5 3.2-5.5 6.5-5.5s5.9 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 010 6.8M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/>',
-users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.5 3.2-5.5 6.5-5.5s5.9 2 6.5 5.5"/><circle cx="18" cy="7" r="2.5"/><path d="M16.5 13.2c2 .3 3.4 1.6 4 3.8"/>',
-payments:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/>',
-audit:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
-backups:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
-settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>'};
-const PAGES={dashboard:['Dashboard','Here is where your billing stands today.'],invoices:['Invoices','Create, track and collect every invoice.'],clients:['Clients','Everyone you bill, with what they owe.'],users:['Users','Every registered account and its subscription.'],payments:['Payments','Money received and how it arrived.'],audit:['Audit logs','Every sign-in attempt across all accounts.'],backups:['Backups','Create, download and restore your data backups.'],profile:['Profile','Your account, plan and billing.'],settings:['Settings','Defaults used for every new invoice.']};
-const svg=n=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${IC[n]}</svg>`;
-const mk=(id,c,i,d,a,s)=>({id,c,i:day(i),d:day(d),a,s,items:[{d:'Professional services',q:1,p:a}],t:0});
+const svg=n=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${IC[n]||''}</svg>`;
 
-const DEF=()=>({
- inv:[mk('INV-1048','Northwind Logistics',-38,-8,8450,'overdue'),mk('INV-1049','Kuda Studios',-21,9,2380,'pending'),mk('INV-1050','Baobab Capital',-18,12,15200,'pending'),mk('INV-1051','Meridian Health',-30,-1,4975,'overdue'),mk('INV-1052','Northwind Logistics',-14,16,6120,'paid'),mk('INV-1053','Zambezi Foods',-12,18,3340,'paid'),mk('INV-1054','Baobab Capital',-9,21,9800,'paid'),mk('INV-1055','Kuda Studios',-4,26,1560,'pending')],
- cl:[{n:'Northwind Logistics',e:'accounts@northwind.co'},{n:'Kuda Studios',e:'hello@kuda.studio'},{n:'Baobab Capital',e:'finance@baobab.com'},{n:'Meridian Health',e:'ap@meridian.health'},{n:'Zambezi Foods',e:'orders@zambezi.foods'}],
- pay:[{inv:'INV-1052',c:'Northwind Logistics',d:day(-6),m:'Bank transfer',a:6120},{inv:'INV-1053',c:'Zambezi Foods',d:day(-5),m:'Card',a:3340},{inv:'INV-1054',c:'Baobab Capital',d:day(-2),m:'Bank transfer',a:9800}],
- users:[
-  {n:'Amara Moyo',e:'amara@ledgerly.app',role:'Administrator',plan:'subscribed',since:day(-320),suspended:false},
-  {n:'Tendai Ncube',e:'tendai@ledgerly.app',role:'Accountant',plan:'subscribed',since:day(-210),suspended:false},
-  {n:'Grace Phiri',e:'grace@ledgerly.app',role:'Accountant',plan:'subscribed',since:day(-12),suspended:false},
-  {n:'Sam Okoro',e:'sam@ledgerly.app',role:'Administrator',plan:'subscribed',since:day(-160),suspended:false},
-  {n:'Nia Banda',e:'nia@ledgerly.app',role:'Accountant',plan:'subscribed',since:day(-64),suspended:false},
-  {n:'Kofi Mensah',e:'kofi@ledgerly.app',role:'Billing clerk',plan:'non-subscribed',since:day(-95),suspended:false},
-  {n:'Lerato Dube',e:'lerato@ledgerly.app',role:'Viewer',plan:'non-subscribed',since:day(-40),suspended:false},
-  {n:'Thabo Sithole',e:'thabo@ledgerly.app',role:'Viewer',plan:'non-subscribed',since:day(-7),suspended:true}
- ],
- me:{e:'amara@ledgerly.app',phone:'+263 77 123 4567',tz:'Africa/Harare',
-     plan:'Ledgerly Pro',price:49,cycle:'Monthly',renew:day(12),
-     payment:'Visa •••• 4242',seats:5,seatsUsed:4,
-     invoicesUsed:38,invoiceLimit:100,clientsUsed:5,clientLimit:50,
-     storageUsed:1.8,storageLimit:10,pwChanged:day(-42)},
- backups:[
-  {id:'BK-0006',name:'Nightly backup',type:'auto',created:stamp(6),size:'4.2 MB',status:'complete'},
-  {id:'BK-0005',name:'Nightly backup',type:'auto',created:stamp(30),size:'4.1 MB',status:'complete'},
-  {id:'BK-0004',name:'Before settings change',type:'manual',created:stamp(52),size:'4.0 MB',status:'complete'},
-  {id:'BK-0003',name:'Nightly backup',type:'auto',created:stamp(54),size:'4.0 MB',status:'complete'},
-  {id:'BK-0002',name:'Nightly backup',type:'auto',created:stamp(78),size:'3.9 MB',status:'failed'},
-  {id:'BK-0001',name:'Monthly archive',type:'manual',created:stamp(120),size:'3.8 MB',status:'complete'}
- ],
- bk:{auto:true,freq:'Daily',time:'02:00',retain:30,dest:'Local + S3'},
- audit:[
-  {t:stamp(0.3),u:'Amara Moyo',e:'amara@ledgerly.app',ev:'login',ip:'102.65.14.8',loc:'Harare, ZW'},
-  {t:stamp(0.9),u:'Unknown account',e:'admin@ledgerly.co',ev:'failed',ip:'45.221.10.77',loc:'Lagos, NG'},
-  {t:stamp(2.4),u:'Tendai Ncube',e:'tendai@ledgerly.app',ev:'login',ip:'41.79.62.14',loc:'Bulawayo, ZW'},
-  {t:stamp(3.1),u:'Grace Phiri',e:'grace@ledgerly.app',ev:'login',ip:'196.21.44.9',loc:'Lusaka, ZM'},
-  {t:stamp(5.2),u:'Kofi Mensah',e:'kofi@ledgerly.app',ev:'failed',ip:'154.160.18.3',loc:'Accra, GH'},
-  {t:stamp(5.5),u:'Kofi Mensah',e:'kofi@ledgerly.app',ev:'login',ip:'154.160.18.3',loc:'Accra, GH'},
-  {t:stamp(8.4),u:'Lerato Dube',e:'lerato@ledgerly.app',ev:'login',ip:'105.184.22.61',loc:'Gaborone, BW'},
-  {t:stamp(12.2),u:'Unknown account',e:'test@ledgerly.app',ev:'failed',ip:'89.207.132.6',loc:'Amsterdam, NL'},
-  {t:stamp(14.7),u:'Amara Moyo',e:'amara@ledgerly.app',ev:'login',ip:'102.65.14.8',loc:'Harare, ZW'},
-  {t:stamp(20.1),u:'Tendai Ncube',e:'tendai@ledgerly.app',ev:'failed',ip:'41.79.62.14',loc:'Bulawayo, ZW'},
-  {t:stamp(22.5),u:'Tendai Ncube',e:'tendai@ledgerly.app',ev:'login',ip:'41.79.62.14',loc:'Bulawayo, ZW'},
-  {t:stamp(26.3),u:'Sam Okoro',e:'sam@ledgerly.app',ev:'login',ip:'197.210.53.20',loc:'Abuja, NG'},
-  {t:stamp(30.8),u:'Unknown account',e:'root@ledgerly.app',ev:'failed',ip:'185.220.101.44',loc:'Frankfurt, DE'},
-  {t:stamp(34.2),u:'Grace Phiri',e:'grace@ledgerly.app',ev:'login',ip:'196.21.44.9',loc:'Lusaka, ZM'},
-  {t:stamp(40.5),u:'Nia Banda',e:'nia@ledgerly.app',ev:'login',ip:'41.60.190.12',loc:'Lilongwe, MW'},
-  {t:stamp(46.9),u:'Amara Moyo',e:'amara@ledgerly.app',ev:'login',ip:'102.65.14.8',loc:'Harare, ZW'},
-  {t:stamp(52.4),u:'Unknown account',e:'info@ledgerly.app',ev:'failed',ip:'103.94.16.5',loc:'Mumbai, IN'},
-  {t:stamp(58.7),u:'Thabo Sithole',e:'thabo@ledgerly.app',ev:'login',ip:'41.13.88.4',loc:'Johannesburg, ZA'}
- ],
- set:{name:'Ledgerly Studio',mail:'billing@ledgerly.app',cur:'$',tax:15,terms:30,pre:'INV-',note:'Thank you for your business. Please pay by the due date.'}
-});
 let S=DEF();
 try{
   const x=JSON.parse(localStorage.getItem('ledgerly')||'null');
@@ -535,7 +475,7 @@ if(!Array.isArray(S.backups))S.backups=DEF().backups;
 if(!S.bk)S.bk=DEF().bk;
 const save=()=>{try{localStorage.setItem('ledgerly',JSON.stringify(S))}catch(e){}};
 const fmt=n=>S.set.cur+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-let filter='all',ufilter='all',afilter='all',term='',sort={k:'i',dir:-1},page='dashboard';
+let filter='all',ufilter='all',afilter='all',term='',sort={k:'i',dir:-1},page=<?= json_encode($initialPage, $jsonFlags) ?>;
 const rev=[18.2,22.5,19.8,27.4,24.1,31.6,0],mon=['Apr','May','Jun','Jul','Aug','Sep','Oct'];
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2400)}
@@ -545,7 +485,8 @@ const total=x=>x.items.reduce((t,i)=>t+i.q*i.p,0)*(1+x.t/100);
 const ME=()=>(S.users||[]).find(u=>u.e===S.me.e)||(S.users||[])[0]||{};
 
 /* Nav */
-const navHTML=['dashboard','invoices','clients','users','payments','audit','backups','settings'].map(k=>`<a href="#${k}" data-p="${k}">${svg(k)}<span>${PAGES[k][0]}</span></a>`).join('');
+const navKeys=['dashboard','invoices','clients','users','payments','audit','backups','settings'];
+const navHTML=navKeys.map(k=>`<a href="${k}.php" data-p="${k}">${svg(k)}<span>${PAGES[k][0]}</span></a>`).join('');
 $('#nav').innerHTML=navHTML;$('#bnav').innerHTML=navHTML;
 
 /* Signed-in identity */
@@ -761,7 +702,7 @@ function bell(){
 
 /* Router */
 function route(){
-  const h=(location.hash||'#dashboard').slice(1);page=PAGES[h]?h:'dashboard';
+  const h=(location.hash||'#'+page).slice(1);page=PAGES[h]?h:'dashboard';
   Object.keys(PAGES).forEach(k=>$('#v-'+k).hidden=k!=page);
   document.querySelectorAll('[data-p]').forEach(a=>{if(a.tagName=='A')a.classList.toggle('on',a.dataset.p==page)});
   $('#ttl').textContent=PAGES[page][0];$('#sub').textContent=PAGES[page][1];
